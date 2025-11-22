@@ -375,10 +375,579 @@
             
             <h2>📡 RTL-SDR Data Interface Specification</h2>
             
-            <div class="info-box">
-                <h4>What You'll Build</h4>
-                <p>An ADS-B (Automatic Dependent Surveillance-Broadcast) receiver that captures radio signals at 1090 MHz from aircraft transponders, decodes the digital messages, and displays real-time aircraft positions, altitudes, speeds, and callsigns on a web-based map.</p>
+            <div class="card">
+                <h3>USB Protocol and Communication</h3>
+                
+                <p><strong>Physical Layer:</strong></p>
+                
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Parameter</th>
+                            <th>Value</th>
+                            <th>Description</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr>
+                            <td><strong>USB Version</strong></td>
+                            <td>USB 2.0</td>
+                            <td>480 Mbps theoretical, 40 MB/s practical</td>
+                        </tr>
+                        <tr>
+                            <td><strong>Transfer Type</strong></td>
+                            <td>Bulk Transfer</td>
+                            <td>Large data transfers, no guaranteed bandwidth</td>
+                        </tr>
+                        <tr>
+                            <td><strong>Vendor ID</strong></td>
+                            <td>0x0bda</td>
+                            <td>Realtek</td>
+                        </tr>
+                        <tr>
+                            <td><strong>Product ID</strong></td>
+                            <td>0x2838</td>
+                            <td>RTL2838 DVB-T</td>
+                        </tr>
+                        <tr>
+                            <td><strong>Endpoint (Data IN)</strong></td>
+                            <td>0x81</td>
+                            <td>Bulk IN endpoint for IQ samples</td>
+                        </tr>
+                        <tr>
+                            <td><strong>Transfer Size</strong></td>
+                            <td>16,384 bytes (16 KB)</td>
+                            <td>Default USB packet size</td>
+                        </tr>
+                        <tr>
+                            <td><strong>Queue Depth</strong></td>
+                            <td>15-32 URBs</td>
+                            <td>USB Request Blocks in flight</td>
+                        </tr>
+                    </tbody>
+                </table>
+                
+                <h4>librtlsdr API Functions</h4>
+                
+                <p><strong>Device Discovery and Control:</strong></p>
+                
+                <pre><code>// Get number of connected RTL-SDR devices
+uint32_t rtlsdr_get_device_count(void);
+// Returns: Number of devices found
+
+// Get device name by index
+const char* rtlsdr_get_device_name(uint32_t index);
+// Returns: Device name string or NULL
+
+// Open device
+int rtlsdr_open(rtlsdr_dev_t **dev, uint32_t index);
+// Arguments: 
+//   dev - pointer to device handle
+//   index - device index (0-based)
+// Returns: 0 on success, < 0 on error
+
+// Close device
+int rtlsdr_close(rtlsdr_dev_t *dev);
+// Returns: 0 on success</code></pre>
+                
+                <p><strong>Frequency and Sample Rate Configuration:</strong></p>
+                
+                <pre><code>// Set center frequency (Hz)
+int rtlsdr_set_center_freq(rtlsdr_dev_t *dev, uint32_t freq);
+// Arguments: freq - frequency in Hz (e.g., 1090000000 for 1090 MHz)
+// Returns: 0 on success, < 0 on error
+
+// Set sample rate (Hz)
+int rtlsdr_set_sample_rate(rtlsdr_dev_t *dev, uint32_t rate);
+// Arguments: rate - samples/second (e.g., 2000000 for 2 MS/s)
+// Returns: 0 on success
+// Valid range: 225001 - 3200000 Hz
+
+// Set frequency correction (PPM)
+int rtlsdr_set_freq_correction(rtlsdr_dev_t *dev, int ppm);
+// Arguments: ppm - parts per million correction (-1000 to +1000)
+// Returns: 0 on success</code></pre>
+                
+                <p><strong>Gain Control:</strong></p>
+                
+                <pre><code>// Set tuner gain mode
+int rtlsdr_set_tuner_gain_mode(rtlsdr_dev_t *dev, int manual);
+// Arguments: manual - 0 for AGC, 1 for manual gain
+// Returns: 0 on success
+
+// Set tuner gain (0.1 dB units)
+int rtlsdr_set_tuner_gain(rtlsdr_dev_t *dev, int gain);
+// Arguments: gain - gain in tenths of dB (e.g., 496 for 49.6 dB)
+// Returns: 0 on success
+// R820T2 valid gains: 0, 9, 14, 27, 37, 77, 87, 125, 144, 157, 
+//                     166, 197, 207, 229, 254, 280, 297, 328, 
+//                     338, 364, 372, 386, 402, 421, 434, 439, 
+//                     445, 480, 496 (in 0.1 dB)
+
+// Get list of available gains
+int rtlsdr_get_tuner_gains(rtlsdr_dev_t *dev, int *gains);
+// Arguments: gains - array to fill with available gains
+// Returns: number of gain values, < 0 on error</code></pre>
+                
+                <p><strong>Data Reading (Synchronous):</strong></p>
+                
+                <pre><code>// Read IQ samples synchronously
+int rtlsdr_read_sync(rtlsdr_dev_t *dev, void *buf, int len, int *n_read);
+// Arguments:
+//   dev - device handle
+//   buf - buffer to store IQ samples
+//   len - buffer length in bytes (must be multiple of 512)
+//   n_read - pointer to store actual bytes read
+// Returns: 0 on success, < 0 on error
+// Format: [I₀, Q₀, I₁, Q₁, ...] each byte 0-255
+
+// Example usage:
+uint8_t buffer[512 * 32];  // 16 KB buffer
+int n_read;
+int ret = rtlsdr_read_sync(dev, buffer, sizeof(buffer), &n_read);
+// buffer now contains n_read bytes of IQ data</code></pre>
+                
+                <p><strong>Data Reading (Asynchronous - Recommended):</strong></p>
+                
+                <pre><code>// Callback function type
+typedef void (*rtlsdr_read_async_cb_t)(unsigned char *buf, 
+                                        uint32_t len, 
+                                        void *ctx);
+
+// Read IQ samples asynchronously
+int rtlsdr_read_async(rtlsdr_dev_t *dev,
+                      rtlsdr_read_async_cb_t cb,
+                      void *ctx,
+                      uint32_t buf_num,
+                      uint32_t buf_len);
+// Arguments:
+//   dev - device handle
+//   cb - callback function called for each buffer
+//   ctx - user context pointer passed to callback
+//   buf_num - number of buffers (0 for default: 15)
+//   buf_len - buffer length (0 for default: 16384, must be multiple of 512)
+// Returns: Does not return until rtlsdr_cancel_async() called
+// Thread: Blocks calling thread, callback runs in same thread
+
+// Cancel async reading
+int rtlsdr_cancel_async(rtlsdr_dev_t *dev);
+// Call from signal handler or another thread to stop reading
+
+// Example callback:
+void iq_callback(unsigned char *buf, uint32_t len, void *ctx) {
+    // buf contains len bytes of IQ data
+    // Process quickly! Don't block!
+    // Copy to ring buffer for processing in another thread
+    
+    MyContext *my_ctx = (MyContext*)ctx;
+    ringbuffer_write(my_ctx->rb, buf, len);
+}</code></pre>
+                
+                <p><strong>Buffer Management:</strong></p>
+                
+                <pre><code>// Reset internal buffers (call before starting read)
+int rtlsdr_reset_buffer(rtlsdr_dev_t *dev);
+// Returns: 0 on success
+// Clears any stale data from previous sessions</code></pre>
             </div>
+            
+            <div class="card">
+                <h3>IQ Sample Format Specification</h3>
+                
+                <p><strong>Raw Format (as received from hardware):</strong></p>
+                
+                <pre><code>Byte Stream Format:
+┌────┬────┬────┬────┬────┬────┬────┬────┐
+│ I₀ │ Q₀ │ I₁ │ Q₁ │ I₂ │ Q₂ │ I₃ │ Q₃ │ ...
+└────┴────┴────┴────┴────┴────┴────┴────┘
+  0    1    2    3    4    5    6    7
+
+Each byte: unsigned 8-bit integer [0-255]
+Center value: 127 (represents DC / zero)
+
+Converting to signed values:
+I_signed = (int16_t)I_byte - 127
+Q_signed = (int16_t)Q_byte - 127
+
+Range after conversion: [-127, +128]</code></pre>
+                
+                <p><strong>Complex Representation:</strong></p>
+                
+                <pre><code>// Each IQ pair represents a complex number:
+Complex Sample = I + j*Q
+
+Example byte values:
+I=150, Q=100 → Complex: (150-127) + j*(100-127) = 23 - 27j
+
+Interpretation:
+- I (In-phase): Cosine component, real part
+- Q (Quadrature): Sine component, imaginary part (90° shifted)
+- Together they fully describe signal amplitude and phase
+
+Magnitude (amplitude):
+mag = √(I² + Q²)
+
+Phase (angle):
+phase = atan2(Q, I)</code></pre>
+                
+                <p><strong>Python Conversion:</strong></p>
+                
+                <pre><code>import numpy as np
+
+# Raw bytes from RTL-SDR
+raw_bytes = np.frombuffer(buffer, dtype=np.uint8)
+
+# Method 1: Separate I and Q
+I = raw_bytes[0::2].astype(np.float32) - 127
+Q = raw_bytes[1::2].astype(np.float32) - 127
+iq_complex = I + 1j*Q
+
+# Method 2: Direct complex conversion
+iq_pairs = raw_bytes.astype(np.float32).reshape(-1, 2)
+iq_pairs -= 127
+iq_complex = iq_pairs[:, 0] + 1j*iq_pairs[:, 1]
+
+# Method 3: Using pyrtlsdr (already converted)
+from rtlsdr import RtlSdr
+sdr = RtlSdr()
+samples = sdr.read_samples(256*1024)
+# samples is already numpy.complex64 array normalized to [-1, +1]</code></pre>
+                
+                <p><strong>C Conversion:</strong></p>
+                
+                <pre><code>// Structure to hold IQ sample
+typedef struct {
+    int16_t i;
+    int16_t q;
+} iq_sample_t;
+
+// Convert raw bytes to IQ samples
+void convert_iq(uint8_t *raw, iq_sample_t *iq, uint32_t count) {
+    for (uint32_t n = 0; n < count; n++) {
+        iq[n].i = (int16_t)raw[n*2] - 127;
+        iq[n].q = (int16_t)raw[n*2 + 1] - 127;
+    }
+}
+
+// Or process in-place for magnitude
+void iq_to_magnitude(uint8_t *iq_bytes, uint16_t *mag, uint32_t count) {
+    for (uint32_t n = 0; n < count; n++) {
+        int16_t i = (int16_t)iq_bytes[n*2] - 127;
+        int16_t q = (int16_t)iq_bytes[n*2 + 1] - 127;
+        mag[n] = (uint16_t)sqrt(i*i + q*q);
+    }
+}</code></pre>
+                
+                <div class="info-box">
+                    <strong>Why Interleaved I/Q?</strong> Hardware ADC samples both I and Q channels simultaneously. Interleaving maintains time synchronization - I₀ and Q₀ are sampled at the same instant.
+                </div>
+            </div>
+            
+            <div class="card">
+                <h3>Data Rate and Bandwidth</h3>
+                
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Sample Rate</th>
+                            <th>Bandwidth</th>
+                            <th>Data Rate</th>
+                            <th>Suitable For</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr>
+                            <td>2.0 MS/s</td>
+                            <td>~2 MHz</td>
+                            <td>4.0 MB/s</td>
+                            <td>ADS-B (ideal, standard)</td>
+                        </tr>
+                        <tr>
+                            <td>2.4 MS/s</td>
+                            <td>~2.4 MHz</td>
+                            <td>4.8 MB/s</td>
+                            <td>ADS-B (wider capture)</td>
+                        </tr>
+                        <tr>
+                            <td>3.2 MS/s</td>
+                            <td>~3.2 MHz</td>
+                            <td>6.4 MB/s</td>
+                            <td>Maximum rate (may drop samples)</td>
+                        </tr>
+                    </tbody>
+                </table>
+                
+                <p><strong>Nyquist Theorem Application:</strong></p>
+                
+                <pre><code>ADS-B Signal Bandwidth: ~2 MHz centered at 1090 MHz
+Nyquist Rate: Must sample at ≥ 2 × Bandwidth = 4 MS/s
+
+BUT: After downconversion to baseband (0 Hz centered):
+- Signal spans -1 MHz to +1 MHz
+- Only need 2 MS/s to capture without aliasing
+- This is why 2.0 MS/s is standard for ADS-B</code></pre>
+            </div>
+            
+            <h2>🔄 Ring Buffer Implementation</h2>
+            
+            <div class="card">
+                <h3>Why Ring Buffers?</h3>
+                
+                <p>Ring buffers solve the producer-consumer problem between USB I/O thread (fast, must not block) and signal processing thread (slower, complex operations).</p>
+                
+                <div class="spec-grid">
+                    <div class="spec-item">
+                        <div class="spec-label">Problem</div>
+                        <div>USB delivers data at 4 MB/s continuously. Processing is bursty and slower.</div>
+                    </div>
+                    <div class="spec-item">
+                        <div class="spec-label">Solution</div>
+                        <div>Buffer to absorb bursts, prevent sample loss</div>
+                    </div>
+                    <div class="spec-item">
+                        <div class="spec-label">Lock-Free</div>
+                        <div>Single producer, single consumer = no locks needed</div>
+                    </div>
+                    <div class="spec-item">
+                        <div class="spec-label">Size</div>
+                        <div>256 KB typical (64ms of data at 4 MB/s)</div>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="card">
+                <h3>Lock-Free Ring Buffer (C Implementation)</h3>
+                
+                <pre><code>#include &lt;stdint.h&gt;
+#include &lt;stdatomic.h&gt;
+#include &lt;string.h&gt;
+
+#define RINGBUF_SIZE (256 * 1024)  // 256 KB
+
+typedef struct {
+    uint8_t buffer[RINGBUF_SIZE];
+    atomic_uint_fast32_t write_pos;  // Written by producer only
+    atomic_uint_fast32_t read_pos;   // Written by consumer only
+} ringbuf_t;
+
+// Initialize ring buffer
+void ringbuf_init(ringbuf_t *rb) {
+    atomic_store(&rb->write_pos, 0);
+    atomic_store(&rb->read_pos, 0);
+}
+
+// Producer: Write data to buffer
+// Returns: bytes actually written (may be less if buffer full)
+uint32_t ringbuf_write(ringbuf_t *rb, const uint8_t *data, uint32_t len) {
+    uint32_t write_pos = atomic_load_explicit(&rb->write_pos, memory_order_relaxed);
+    uint32_t read_pos = atomic_load_explicit(&rb->read_pos, memory_order_acquire);
+    
+    // Calculate available space
+    uint32_t available;
+    if (write_pos >= read_pos) {
+        available = RINGBUF_SIZE - (write_pos - read_pos) - 1;
+    } else {
+        available = read_pos - write_pos - 1;
+    }
+    
+    // Limit to available space
+    if (len > available) {
+        len = available;  // Partial write
+    }
+    
+    if (len == 0) return 0;
+    
+    // Write data (may wrap around)
+    uint32_t end_pos = write_pos + len;
+    if (end_pos <= RINGBUF_SIZE) {
+        // Simple case: no wraparound
+        memcpy(&rb->buffer[write_pos], data, len);
+    } else {
+        // Wraparound case
+        uint32_t first_part = RINGBUF_SIZE - write_pos;
+        memcpy(&rb->buffer[write_pos], data, first_part);
+        memcpy(&rb->buffer[0], data + first_part, len - first_part);
+        end_pos -= RINGBUF_SIZE;
+    }
+    
+    // Update write position with release semantics
+    atomic_store_explicit(&rb->write_pos, end_pos, memory_order_release);
+    
+    return len;
+}
+
+// Consumer: Read data from buffer
+// Returns: bytes actually read
+uint32_t ringbuf_read(ringbuf_t *rb, uint8_t *data, uint32_t len) {
+    uint32_t read_pos = atomic_load_explicit(&rb->read_pos, memory_order_relaxed);
+    uint32_t write_pos = atomic_load_explicit(&rb->write_pos, memory_order_acquire);
+    
+    // Calculate available data
+    uint32_t available;
+    if (write_pos >= read_pos) {
+        available = write_pos - read_pos;
+    } else {
+        available = RINGBUF_SIZE - (read_pos - write_pos);
+    }
+    
+    // Limit to available data
+    if (len > available) {
+        len = available;
+    }
+    
+    if (len == 0) return 0;
+    
+    // Read data (may wrap around)
+    uint32_t end_pos = read_pos + len;
+    if (end_pos <= RINGBUF_SIZE) {
+        memcpy(data, &rb->buffer[read_pos], len);
+    } else {
+        uint32_t first_part = RINGBUF_SIZE - read_pos;
+        memcpy(data, &rb->buffer[read_pos], first_part);
+        memcpy(data + first_part, &rb->buffer[0], len - first_part);
+        end_pos -= RINGBUF_SIZE;
+    }
+    
+    // Update read position
+    atomic_store_explicit(&rb->read_pos, end_pos, memory_order_release);
+    
+    return len;
+}
+
+// Check available data for reading
+uint32_t ringbuf_available(ringbuf_t *rb) {
+    uint32_t read_pos = atomic_load_explicit(&rb->read_pos, memory_order_relaxed);
+    uint32_t write_pos = atomic_load_explicit(&rb->write_pos, memory_order_acquire);
+    
+    if (write_pos >= read_pos) {
+        return write_pos - read_pos;
+    } else {
+        return RINGBUF_SIZE - (read_pos - write_pos);
+    }
+}</code></pre>
+                
+                <div class="success-box">
+                    <strong>Key Points:</strong>
+                    <ul>
+                        <li><code>memory_order_acquire</code> when reading the other thread's position ensures we see all its writes</li>
+                        <li><code>memory_order_release</code> when updating our position ensures all our writes are visible</li>
+                        <li>Single producer, single consumer = no compare-and-swap needed</li>
+                        <li>Keep one slot empty to distinguish full from empty</li>
+                    </ul>
+                </div>
+            </div>
+            
+            <div class="card">
+                <h3>Python Ring Buffer (Threading)</h3>
+                
+                <pre><code>import threading
+import numpy as np
+from collections import deque
+
+class RingBuffer:
+    """Thread-safe ring buffer for IQ samples"""
+    
+    def __init__(self, max_size=256*1024):
+        self.max_size = max_size
+        self.buffer = deque(maxlen=max_size)
+        self.lock = threading.Lock()
+        self.not_empty = threading.Condition(self.lock)
+        self.overrun_count = 0
+    
+    def write(self, data):
+        """
+        Write data to buffer (producer)
+        
+        Args:
+            data: numpy array or bytes to write
+        Returns:
+            Number of bytes written
+        """
+        if isinstance(data, np.ndarray):
+            data = data.tobytes()
+        
+        with self.lock:
+            data_len = len(data)
+            space_available = self.max_size - len(self.buffer)
+            
+            if data_len > space_available:
+                # Overrun - data lost
+                self.overrun_count += 1
+                # Write what we can
+                data = data[:space_available]
+            
+            self.buffer.extend(data)
+            self.not_empty.notify()
+            
+            return len(data)
+    
+    def read(self, count, block=True, timeout=None):
+        """
+        Read data from buffer (consumer)
+        
+        Args:
+            count: Number of bytes to read
+            block: If True, wait for data
+            timeout: Max wait time in seconds
+            
+        Returns:
+            bytes object with data
+        """
+        with self.not_empty:
+            # Wait for data if buffer empty
+            while len(self.buffer) < count:
+                if not block:
+                    # Return what we have
+                    count = len(self.buffer)
+                    if count == 0:
+                        return b''
+                    break
+                
+                if not self.not_empty.wait(timeout):
+                    # Timeout - return what we have
+                    count = min(count, len(self.buffer))
+                    break
+            
+            # Read data
+            result = bytes(self.buffer[i] for i in range(count))
+            
+            # Remove read data
+            for _ in range(count):
+                self.buffer.popleft()
+            
+            return result
+    
+    def available(self):
+        """Return number of bytes available for reading"""
+        with self.lock:
+            return len(self.buffer)
+    
+    def stats(self):
+        """Return buffer statistics"""
+        with self.lock:
+            return {
+                'size': len(self.buffer),
+                'capacity': self.max_size,
+                'utilization': len(self.buffer) / self.max_size,
+                'overruns': self.overrun_count
+            }
+
+# Usage example:
+ringbuf = RingBuffer(max_size=256*1024)
+
+# Producer thread (USB callback)
+def usb_callback(iq_data):
+    ringbuf.write(iq_data)
+
+# Consumer thread (signal processing)
+def processing_thread():
+    while running:
+        data = ringbuf.read(32*1024, block=True)
+        if data:
+            process_iq_samples(data)</code></pre>
+            </div>
+            
+            <h2>⚡ Signal Processing Algorithms</h2>
             
             <div class="card">
                 <h3>Understanding the Data Flow</h3>
