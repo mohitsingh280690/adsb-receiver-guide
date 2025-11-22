@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>ADS-B Receiver Implementation Guide - RTL-SDR</title>
+    <title>ADS-B Decoder Software Development Guide</title>
     <style>
         * {
             margin: 0;
@@ -213,13 +213,167 @@
 <body>
     <div class="container">
         <header>
-            <h1>🛩️ ADS-B Receiver Implementation Guide</h1>
-            <p>Complete Practical Guide for Building an ADS-B Receiver Using RTL-SDR</p>
-            <p style="font-size: 0.9em; margin-top: 10px;">Track aircraft in real-time by decoding 1090 MHz transponder signals</p>
+            <h1>🔧 ADS-B Decoder Software Development Guide</h1>
+            <p>Learn to Build Your Own ADS-B Decoder from Scratch</p>
+            <p style="font-size: 0.9em; margin-top: 10px;">Complete architectural guide for developing software like dump1090 and pyModeS</p>
         </header>
         
         <div class="content">
-            <h2>📋 Project Overview</h2>
+            <h2>📋 Software Development Focus</h2>
+            
+            <div class="info-box">
+                <h4>What This Guide Teaches</h4>
+                <p>This is a <strong>software development guide</strong> for building ADS-B decoder applications from scratch. You'll learn the complete architecture, data interfaces, signal processing algorithms, and implementation details needed to create tools like dump1090 or pyModeS.</p>
+                <p><strong>Focus:</strong> Understanding every data transformation, interface specification, and architectural decision - not just using pre-built tools.</p>
+            </div>
+            
+            <div class="warning-box">
+                <h4>⚠️ This Guide is NOT About:</h4>
+                <ul>
+                    <li>Installing and configuring existing tools (dump1090, readsb)</li>
+                    <li>Hardware assembly or antenna building</li>
+                    <li>Operating system setup procedures</li>
+                    <li>Basic usage tutorials</li>
+                </ul>
+                <p><strong>This IS About:</strong> Software architecture, data interfaces, algorithm implementation, and building your own decoder.</p>
+            </div>
+            
+            <h2>🏗️ Complete System Architecture</h2>
+            
+            <div class="card">
+                <h3>High-Level Block Diagram</h3>
+                
+                <pre style="background: #f8f9fa; color: #2d3436; border: 2px solid #667eea; padding: 30px; font-family: monospace; line-height: 1.8;">
+┌─────────────────────────────────────────────────────────────────────────────┐
+│                          ADS-B DECODER ARCHITECTURE                          │
+└─────────────────────────────────────────────────────────────────────────────┘
+
+                           ┌──────────────────┐
+                           │   Aircraft @     │
+                           │   1090 MHz RF    │
+                           └────────┬─────────┘
+                                    │ Electromagnetic Wave
+                                    ▼
+                           ┌──────────────────┐
+                           │    Antenna       │
+                           │  (1090 MHz)      │
+                           └────────┬─────────┘
+                                    │ RF Signal
+                                    ▼
+┌───────────────────────────────────────────────────────────────────────────┐
+│                         HARDWARE LAYER (RTL-SDR)                          │
+│  ┌────────────────┐          ┌────────────────┐                          │
+│  │  R820T2 Tuner  │          │  RTL2832U ADC  │                          │
+│  │  - Mix to IF   │  ──────> │  - 8-bit       │                          │
+│  │  - AGC/Gain    │          │  - 2 MS/s      │                          │
+│  └────────────────┘          └───────┬────────┘                          │
+│                                      │                                    │
+└──────────────────────────────────────┼────────────────────────────────────┘
+                                       │ USB 2.0 Bulk Transfer
+                                       │ 4 MB/s IQ Data Stream
+                                       │ [I₀,Q₀,I₁,Q₁,I₂,Q₂,...]
+                                       ▼
+┌───────────────────────────────────────────────────────────────────────────┐
+│                         DRIVER LAYER (librtlsdr)                          │
+│  ┌─────────────────────────────────────────────────────────────────┐     │
+│  │  • USB Communication (libusb)                                   │     │
+│  │  • Device Control (frequency, gain, sample rate)                │     │
+│  │  • Buffer Management                                            │     │
+│  │  • IQ Sample Delivery (callbacks or blocking read)              │     │
+│  └─────────────────────────────────────────────────────────────────┘     │
+└──────────────────────────────────────────┬────────────────────────────────┘
+                                           │ API: rtlsdr_read_async()
+                                           │ IQ Samples (uint8 or complex64)
+                                           ▼
+┌───────────────────────────────────────────────────────────────────────────┐
+│                     YOUR DECODER SOFTWARE STARTS HERE                     │
+└───────────────────────────────────────────────────────────────────────────┘
+                                           │
+                    ┌──────────────────────┴──────────────────────┐
+                    ▼                                             ▼
+         ┌─────────────────────┐                      ┌─────────────────────┐
+         │  SIGNAL PROCESSING  │                      │   CONTROL THREAD    │
+         │       THREAD        │                      │  - Configuration    │
+         │                     │                      │  - Statistics       │
+         └──────────┬──────────┘                      │  - HTTP Server      │
+                    │                                 └─────────────────────┘
+                    │ IQ Samples Buffer
+                    ▼
+         ┌─────────────────────────────────┐
+         │  1. MAGNITUDE CALCULATION       │
+         │     Input:  Complex IQ samples  │
+         │     Output: uint16 magnitude    │
+         │     Algo:   mag = √(I²+Q²)      │
+         └──────────┬──────────────────────┘
+                    │ Magnitude Stream
+                    ▼
+         ┌─────────────────────────────────┐
+         │  2. PREAMBLE DETECTION          │
+         │     Input:  Magnitude array     │
+         │     Output: Message positions   │
+         │     Algo:   Pattern correlation │
+         └──────────┬──────────────────────┘
+                    │ Message Start Indices
+                    ▼
+         ┌─────────────────────────────────┐
+         │  3. PPM DEMODULATION            │
+         │     Input:  Magnitude samples   │
+         │     Output: Binary bits [0,1]   │
+         │     Algo:   Bit slicing         │
+         └──────────┬──────────────────────┘
+                    │ Raw Bit Stream
+                    ▼
+         ┌─────────────────────────────────┐
+         │  4. CRC VALIDATION              │
+         │     Input:  112-bit message     │
+         │     Output: Valid/Invalid       │
+         │     Algo:   Polynomial check    │
+         └──────────┬──────────────────────┘
+                    │ Valid Messages Only
+                    ▼
+         ┌─────────────────────────────────┐
+         │  5. MESSAGE DECODER             │
+         │     Input:  Binary message      │
+         │     Output: Parsed fields       │
+         │     Algo:   Bit field extract   │
+         └──────────┬──────────────────────┘
+                    │ Decoded Message (ICAO, Type, Data)
+                    ▼
+         ┌─────────────────────────────────┐
+         │  6. POSITION CALCULATOR         │
+         │     Input:  CPR encoded lat/lon │
+         │     Output: Decimal coordinates │
+         │     Algo:   CPR decoding        │
+         └──────────┬──────────────────────┘
+                    │ Aircraft Updates
+                    ▼
+         ┌─────────────────────────────────────────┐
+         │  7. AIRCRAFT TRACKER (State DB)         │
+         │     - Hash Map: ICAO → Aircraft State   │
+         │     - Update fields from messages       │
+         │     - Timeout old aircraft              │
+         │     - CPR frame pairing                 │
+         └──────────┬──────────────────────────────┘
+                    │ Aircraft Database
+                    ▼
+         ┌─────────────────────────────────────────┐
+         │  8. OUTPUT INTERFACES                   │
+         │     ┌────────────┬────────────┬────────┐│
+         │     │ JSON API   │ TCP Ports  │  HTTP  ││
+         │     │ aircraft.  │ 30002-5    │ :8080  ││
+         │     │ json       │ BaseStation│ Web UI ││
+         │     └────────────┴────────────┴────────┘│
+         └─────────────────────────────────────────┘
+                    │
+                    ▼
+              ┌──────────────┐
+              │  Web Browser │
+              │  Map Display │
+              └──────────────┘
+</pre>
+            </div>
+            
+            <h2>📡 RTL-SDR Data Interface Specification</h2>
             
             <div class="info-box">
                 <h4>What You'll Build</h4>

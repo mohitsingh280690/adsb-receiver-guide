@@ -1,99 +1,116 @@
-# ADS-B Receiver Implementation Guide
+# ADS-B Decoder Software Development Guide
 
-A comprehensive guide to building an ADS-B (Automatic Dependent Surveillance-Broadcast) receiver using RTL-SDR to track aircraft in real-time.
+A comprehensive technical guide for **developing ADS-B decoder software** from scratch - understanding data interfaces, signal processing pipelines, and system architecture to build tools like dump1090 and pyModeS.
 
 ## 📋 Overview
 
-This guide covers everything you need to build a complete ADS-B receiver system:
+This guide focuses on **building your own ADS-B decoder software**, not just using existing tools. You'll learn:
 
-- **Hardware selection** (RTL-SDR dongles, antennas, cables)
-- **Software installation** (Windows & Linux)
-- **Signal processing** pipeline from RF to decoded aircraft data
-- **Antenna optimization** and placement strategies
-- **Web interfaces** and data visualization
-- **Building your own decoder** from scratch (like dump1090)
+- **Data interface specifications** (RTL-SDR IQ format, USB protocols)
+- **Signal processing architecture** (from raw samples to decoded messages)
+- **System design patterns** for real-time SDR applications
+- **Implementation details** with working code examples
+- **Performance optimization** techniques
+- **Complete decoder architecture** with block diagrams
 
-## 🚀 Quick Start
+## 🎯 Target Audience
 
-1. **View the guide**: Open `adsb-receiver-implementation.html` in any web browser
-2. **Get hardware**: RTL-SDR dongle ($25-40) + 1090 MHz antenna
-3. **Follow the installation steps** for your operating system
-4. **Start tracking aircraft** within hours!
+- Software developers interested in SDR (Software Defined Radio)
+- Engineers wanting to understand ADS-B signal processing
+- Students learning real-time signal processing
+- Hobbyists building custom aviation tracking applications
 
-## 📖 What's Covered
+## 🚀 What You'll Learn
 
-### Hardware Requirements
-- RTL-SDR specifications and recommended models
-- Antenna types (DIY quarter-wave, commercial collinear)
-- Cable requirements and loss calculations
-- LNA and filter options
+### Data Interfaces & Formats
+- RTL-SDR USB interface and data protocol
+- IQ sample format (8-bit unsigned, complex representation)
+- Driver API (librtlsdr, pyrtlsdr)
+- Output formats (raw bytes, JSON, BaseStation, Beast binary)
 
-### Software Setup
-- **Windows**: Zadig driver installation, dump1090 setup
-- **Linux**: Driver blacklisting, building from source, systemd services
-- Configuration optimization (gain, PPM correction)
+### System Architecture
+- Multi-threaded pipeline design
+- Buffer management and flow control
+- State machine for aircraft tracking
+- Network server architecture
 
-### Technical Deep Dive
-- IQ sample format and what RTL-SDR outputs
-- Signal processing pipeline (magnitude, preamble detection, demodulation)
-- ADS-B message structure and decoding
-- CPR (Compact Position Reporting) algorithm
+### Signal Processing Pipeline
+- IQ to magnitude conversion
+- Preamble detection algorithms
+- PPM (Pulse Position Modulation) demodulation
 - CRC validation and error correction
+- Message decoding and parsing
 
 ### Advanced Topics
-- Building your own decoder (Python/C/Rust examples)
-- Complete code implementations for each processing stage
-- Aircraft tracking and state management
-- Web interface development
-- Data aggregation networks (FlightAware, FlightRadar24)
+- CPR (Compact Position Reporting) algorithm
+- Multi-aircraft state management
+- Real-time performance optimization
+- MLAT (Multilateration) concepts
 
-### Optimization
-- Antenna placement and line-of-sight calculations
-- Expected performance by setup type
-- Troubleshooting guide
-- Gain tuning procedures
+## 📖 Guide Structure
 
-## 🛠️ Technologies Used
+1. **System Architecture Overview** - Block diagrams, data flow, component interaction
+2. **RTL-SDR Interface Layer** - Hardware communication, IQ samples, USB protocols
+3. **Signal Processing Core** - Magnitude calculation, filtering, detection algorithms
+4. **Demodulation Engine** - Preamble detection, bit slicing, frame extraction
+5. **Message Decoder** - ADS-B message structure, field parsing, CRC validation
+6. **Position Calculation** - CPR algorithm implementation, coordinate decoding
+7. **Aircraft Tracker** - State management, database design, timeout handling
+8. **Output Interfaces** - JSON API, network protocols, web server integration
+9. **Performance Optimization** - Threading, vectorization, profiling
+10. **Complete Implementation** - Full working decoder in Python and C
 
-- RTL-SDR (RTL2832U + R820T2)
-- dump1090-fa / readsb (decoders)
-- tar1090 (web interface)
-- Python (pyrtlsdr, numpy, pyModeS)
-- C (librtlsdr)
+## 🛠️ Technologies Covered
 
-## 📊 Expected Results
+- **Languages**: Python, C, Rust
+- **Libraries**: librtlsdr, numpy, asyncio
+- **Concepts**: DSP, real-time systems, network programming
+- **Protocols**: ADS-B/Mode S, USB, TCP/IP, HTTP
 
-With proper setup, expect to track:
-- **Range**: 150-400 km depending on antenna height
-- **Aircraft count**: 50-1000+ simultaneous aircraft
-- **Message rate**: 500-3000 messages/second
+## 📊 What You'll Build
 
-## 🎯 Use Cases
+By following this guide, you'll create:
+- A working ADS-B decoder capable of processing 2000+ messages/second
+- Real-time aircraft tracking system
+- Web-based visualization interface
+- Network data feeds compatible with aggregators
 
-- Real-time aircraft tracking hobby
-- Aviation monitoring and statistics
-- Feed aggregation networks for premium access
-- Educational project for signal processing
-- Custom application development
+## 🎓 Prerequisites
 
-## 📚 Resources
+- Programming experience (Python or C)
+- Basic understanding of digital signals (sampling, frequency)
+- Familiarity with binary data and bit operations
+- RTL-SDR hardware ($25-40)
 
-The guide includes links to:
-- Official documentation (dump1090, readsb, pyModeS)
-- Community forums and support
-- Technical specifications (Mode S, ADS-B)
-- Project ideas and examples
+## 📚 Guide Access
+
+**Live Guide:** https://mohitsingh280690.github.io/adsb-receiver-guide/
+
+The guide includes:
+- Interactive HTML documentation
+- Complete code examples
+- Architecture diagrams
+- Step-by-step implementation
+- Performance benchmarks
+
+## 🔧 Development Focus
+
+This guide emphasizes:
+- ✅ Understanding data interfaces and transformations
+- ✅ Implementing signal processing algorithms
+- ✅ Designing scalable software architecture
+- ✅ Writing performant real-time code
+- ❌ NOT just using existing tools
+- ❌ NOT hardware assembly instructions
+- ❌ NOT antenna building guides
 
 ## 📝 License
 
-This guide is provided as educational material. All code examples are provided as-is.
-
-## 🤝 Contributing
-
-Feel free to submit issues or improvements to enhance this guide.
+This guide is provided as educational material for software developers. All code examples are provided as-is for learning purposes.
 
 ---
 
 **Last Updated**: November 22, 2025
 
-Happy tracking! ✈️📡
+Build your own ADS-B decoder! 🔧📡
+
