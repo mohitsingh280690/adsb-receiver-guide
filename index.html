@@ -1277,6 +1277,600 @@ position = adsb.position(msg_even, msg_odd, t_even, t_odd)</code></pre>
                 <p><strong>Next step:</strong> Build your own decoder or contribute to existing projects!</p>
             </div>
             
+            <!-- APPENDIX -->
+            <h2>📖 Appendix: Building RTL-SDR Libraries from Scratch</h2>
+            
+            <div class="info-box">
+                <p><strong>Deep Dive:</strong> Understanding how librtlsdr and pyrtlsdr are built internally - USB communication, register control, and sample streaming.</p>
+            </div>
+            
+            <h3>A.1 RTL-SDR Hardware Architecture</h3>
+            
+            <div class="card">
+                <h4>Chip-Level Components</h4>
+                
+                <pre><code>┌─────────────────────────────────────────┐
+│         RTL-SDR USB Dongle              │
+├─────────────────────────────────────────┤
+│                                         │
+│  ┌──────────┐         ┌──────────────┐ │
+│  │  R820T2  │  I/Q   │  RTL2832U    │ │
+│  │  Tuner   │───────→│  Demodulator │ │
+│  │          │        │  + USB       │ │
+│  └──────────┘        └──────────────┘ │
+│       ↑                     ↓          │
+│   RF Input              USB 2.0        │
+│   1090 MHz                             │
+└─────────────────────────────────────────┘
+
+Component Roles:
+1. R820T2 Tuner Chip:
+   - Selects frequency (24-1766 MHz range)
+   - Downconverts RF to baseband I/Q
+   - Controlled via I2C (address 0x34)
+   - Variable gain (0-50 dB)
+
+2. RTL2832U Demodulator:
+   - ADC samples I/Q at 2.048 MS/s (configurable)
+   - Streams samples over USB
+   - Acts as I2C master to control tuner
+   - USB interface (Bulk transfer, endpoint 0x81)
+</code></pre>
+            </div>
+            
+            <h3>A.2 USB Communication Layer</h3>
+            
+            <div class="card">
+                <h4>USB Device Descriptors</h4>
+                
+                <pre><code>// RTL-SDR USB Identity
+#define RTL_VID  0x0bda  // Realtek Vendor ID
+#define RTL_PID  0x2838  // RTL2832U Product ID
+
+// USB Endpoints
+#define BULK_IN_EP   0x81  // Streaming endpoint (device → host)
+#define CTRL_EP      0x00  // Control endpoint
+
+// USB Request Types
+#define CTRL_IN      (LIBUSB_REQUEST_TYPE_VENDOR | LIBUSB_ENDPOINT_IN)
+#define CTRL_OUT     (LIBUSB_REQUEST_TYPE_VENDOR | LIBUSB_ENDPOINT_OUT)
+</code></pre>
+                
+                <h4>Core USB Operations</h4>
+                
+                <pre><code>// libusb-based implementation (librtlsdr foundation)
+#include &lt;libusb-1.0/libusb.h&gt;
+
+typedef struct rtlsdr_dev {
+    libusb_context *ctx;
+    libusb_device_handle *devh;
+    uint32_t freq;
+    uint32_t rate;
+    int gain;
+} rtlsdr_dev_t;
+
+// 1. Device Discovery and Opening
+int rtlsdr_open(rtlsdr_dev_t **out_dev, uint32_t index) {
+    libusb_device **list;
+    rtlsdr_dev_t *dev = malloc(sizeof(rtlsdr_dev_t));
+    
+    // Initialize libusb
+    libusb_init(&dev->ctx);
+    
+    // Find all USB devices
+    int cnt = libusb_get_device_list(dev->ctx, &list);
+    
+    // Find RTL-SDR devices
+    int found = 0;
+    for (int i = 0; i < cnt; i++) {
+        struct libusb_device_descriptor desc;
+        libusb_get_device_descriptor(list[i], &desc);
+        
+        if (desc.idVendor == RTL_VID && desc.idProduct == RTL_PID) {
+            if (found == index) {
+                // Open this device
+                libusb_open(list[i], &dev->devh);
+                break;
+            }
+            found++;
+        }
+    }
+    
+    // Claim USB interface
+    libusb_claim_interface(dev->devh, 0);
+    
+    *out_dev = dev;
+    return 0;
+}
+</code></pre>
+            </div>
+            
+            <h3>A.3 Register Control via USB Control Transfers</h3>
+            
+            <div class="card">
+                <h4>RTL2832U Register Map</h4>
+                
+                <pre><code>// Key RTL2832U Register Blocks
+#define USBB  0x0000  // USB Block
+#define SYSB  0x2000  // System Block  
+#define IRDB  0x3000  // IR Block (unused)
+#define IICB  0x6000  // I2C Block (tuner control)
+
+// Critical Registers
+#define DEMOD_CTL      0x3000  // Demodulator control
+#define SAMPLE_RATE    0x3016  // Sample rate divisor
+#define AGC_MODE       0x3040  // AGC control
+</code></pre>
+                
+                <h4>Reading/Writing Registers</h4>
+                
+                <pre><code>// Low-level register access
+int rtlsdr_write_reg(rtlsdr_dev_t *dev, uint16_t reg, uint8_t val) {
+    uint8_t data = val;
+    return libusb_control_transfer(
+        dev->devh,
+        CTRL_OUT,           // bmRequestType
+        0x10,               // bRequest (write register)
+        reg & 0xFF,         // wValue (low byte)
+        reg >> 8,           // wIndex (high byte)
+        &data,              // data
+        1,                  // length
+        1000                // timeout ms
+    );
+}
+
+int rtlsdr_read_reg(rtlsdr_dev_t *dev, uint16_t reg, uint8_t *val) {
+    return libusb_control_transfer(
+        dev->devh,
+        CTRL_IN,
+        0x00,               // bRequest (read register)
+        reg & 0xFF,
+        reg >> 8,
+        val,
+        1,
+        1000
+    );
+}
+
+// Example: Disable digital AGC
+void disable_digital_agc(rtlsdr_dev_t *dev) {
+    rtlsdr_write_reg(dev, 0x3040, 0x00);  // AGC_MODE = manual
+}
+</code></pre>
+            </div>
+            
+            <h3>A.4 Tuner Control via I2C</h3>
+            
+            <div class="card">
+                <h4>I2C Communication Through RTL2832U</h4>
+                
+                <pre><code>// RTL2832U acts as I2C master to control R820T2 tuner
+#define R820T_I2C_ADDR  0x34
+
+// I2C write via USB control transfer
+int rtlsdr_i2c_write(rtlsdr_dev_t *dev, uint8_t addr, uint8_t *buf, int len) {
+    return libusb_control_transfer(
+        dev->devh,
+        CTRL_OUT,
+        0x02,               // I2C write command
+        addr,               // I2C slave address
+        0x10,               // I2C index
+        buf,
+        len,
+        1000
+    );
+}
+
+// R820T2 Register Programming
+typedef struct r820t_config {
+    uint8_t regs[32];  // R820T2 has ~30 registers
+} r820t_config_t;
+
+// Set tuner frequency (simplified)
+int r820t_set_freq(rtlsdr_dev_t *dev, uint32_t freq) {
+    // Calculate PLL divider for target frequency
+    uint32_t vco_freq = freq * 4;  // VCO runs at 4x
+    uint16_t divider = vco_freq / 1000000;  // Simplified
+    
+    // R820T2 frequency control registers
+    uint8_t regs[5];
+    regs[0] = 0x05;  // Register address
+    regs[1] = (divider >> 8) & 0x3F;
+    regs[2] = divider & 0xFF;
+    regs[3] = 0x80;  // Additional PLL settings
+    regs[4] = 0x00;
+    
+    // Write to tuner via I2C
+    rtlsdr_i2c_write(dev, R820T_I2C_ADDR, regs, 5);
+    
+    return 0;
+}
+
+// Set tuner gain
+int r820t_set_gain(rtlsdr_dev_t *dev, int gain) {
+    // R820T2 has LNA and Mixer gain stages
+    // gain: 0-50 dB in steps
+    
+    uint8_t lna_gain = (gain / 10);  // Simplified mapping
+    uint8_t mixer_gain = gain % 10;
+    
+    uint8_t data[2];
+    data[0] = 0x05;  // LNA gain register
+    data[1] = lna_gain;
+    rtlsdr_i2c_write(dev, R820T_I2C_ADDR, data, 2);
+    
+    data[0] = 0x07;  // Mixer gain register
+    data[1] = mixer_gain;
+    rtlsdr_i2c_write(dev, R820T_I2C_ADDR, data, 2);
+    
+    return 0;
+}
+</code></pre>
+            </div>
+            
+            <h3>A.5 Sample Rate Configuration</h3>
+            
+            <div class="card">
+                <h4>RTL2832U Crystal and Resampling</h4>
+                
+                <pre><code>// RTL2832U uses 28.8 MHz crystal
+#define CRYSTAL_FREQ  28800000
+
+int rtlsdr_set_sample_rate(rtlsdr_dev_t *dev, uint32_t rate) {
+    // RTL2832U divides crystal frequency
+    // rate = CRYSTAL_FREQ / divisor
+    // Valid rates: ~225 kS/s to 3.2 MS/s
+    
+    uint32_t divisor = CRYSTAL_FREQ / rate;
+    
+    // Validate range
+    if (divisor < 9 || divisor > 128) {
+        return -1;  // Out of range
+    }
+    
+    // Write sample rate registers (16-bit value split across 2 registers)
+    rtlsdr_write_reg(dev, 0x3016, (divisor >> 8) & 0xFF);   // High byte
+    rtlsdr_write_reg(dev, 0x3017, divisor & 0xFF);          // Low byte
+    
+    // Enable resampler if needed
+    if (rate < 1000000) {
+        rtlsdr_write_reg(dev, 0x3018, 0x01);  // Enable
+    } else {
+        rtlsdr_write_reg(dev, 0x3018, 0x00);  // Bypass
+    }
+    
+    dev->rate = rate;
+    return 0;
+}
+</code></pre>
+            </div>
+            
+            <h3>A.6 Bulk Transfer for Sample Streaming</h3>
+            
+            <div class="card">
+                <h4>Asynchronous USB Bulk Transfer</h4>
+                
+                <pre><code>// Streaming uses asynchronous bulk transfers for efficiency
+#define BULK_BUFFER_SIZE  (16 * 16384)  // 256 KB per buffer
+#define NUM_BUFFERS       15             // Multiple buffers
+
+typedef struct rtlsdr_async_ctx {
+    rtlsdr_dev_t *dev;
+    rtlsdr_read_async_cb_t callback;
+    void *user_ctx;
+    struct libusb_transfer *transfers[NUM_BUFFERS];
+    uint8_t *buffers[NUM_BUFFERS];
+    int active;
+} async_ctx_t;
+
+// Callback invoked when USB transfer completes
+static void LIBUSB_CALL usb_callback(struct libusb_transfer *xfr) {
+    async_ctx_t *ctx = (async_ctx_t *)xfr->user_data;
+    
+    if (xfr->status == LIBUSB_TRANSFER_COMPLETED) {
+        // Pass samples to user callback
+        ctx->callback(xfr->buffer, xfr->actual_length, ctx->user_ctx);
+        
+        // Resubmit transfer for continuous streaming
+        if (ctx->active) {
+            libusb_submit_transfer(xfr);
+        }
+    }
+}
+
+// Start asynchronous reading
+int rtlsdr_read_async(rtlsdr_dev_t *dev, rtlsdr_read_async_cb_t cb, 
+                      void *ctx) {
+    async_ctx_t async_ctx = {0};
+    async_ctx.dev = dev;
+    async_ctx.callback = cb;
+    async_ctx.user_ctx = ctx;
+    async_ctx.active = 1;
+    
+    // Allocate buffers and transfers
+    for (int i = 0; i < NUM_BUFFERS; i++) {
+        async_ctx.buffers[i] = malloc(BULK_BUFFER_SIZE);
+        async_ctx.transfers[i] = libusb_alloc_transfer(0);
+        
+        // Setup bulk transfer
+        libusb_fill_bulk_transfer(
+            async_ctx.transfers[i],
+            dev->devh,
+            BULK_IN_EP,                     // Endpoint 0x81
+            async_ctx.buffers[i],
+            BULK_BUFFER_SIZE,
+            usb_callback,                   // Completion callback
+            &async_ctx,
+            5000                            // Timeout
+        );
+        
+        // Submit transfer
+        libusb_submit_transfer(async_ctx.transfers[i]);
+    }
+    
+    // Event loop - handles USB events and callbacks
+    while (async_ctx.active) {
+        libusb_handle_events(dev->ctx);
+    }
+    
+    // Cleanup
+    for (int i = 0; i < NUM_BUFFERS; i++) {
+        libusb_cancel_transfer(async_ctx.transfers[i]);
+        free(async_ctx.buffers[i]);
+    }
+    
+    return 0;
+}
+</code></pre>
+            </div>
+            
+            <h3>A.7 Complete librtlsdr Implementation Summary</h3>
+            
+            <div class="card">
+                <h4>Full API Implementation</h4>
+                
+                <pre><code>// Complete device lifecycle
+int rtlsdr_open(rtlsdr_dev_t **dev, uint32_t index);
+int rtlsdr_close(rtlsdr_dev_t *dev);
+
+// Configuration
+int rtlsdr_set_center_freq(rtlsdr_dev_t *dev, uint32_t freq);
+int rtlsdr_set_sample_rate(rtlsdr_dev_t *dev, uint32_t rate);
+int rtlsdr_set_tuner_gain(rtlsdr_dev_t *dev, int gain);
+int rtlsdr_set_tuner_gain_mode(rtlsdr_dev_t *dev, int manual);
+
+// Reading
+int rtlsdr_read_sync(rtlsdr_dev_t *dev, void *buf, int len, int *n_read);
+int rtlsdr_read_async(rtlsdr_dev_t *dev, rtlsdr_read_async_cb_t cb, void *ctx);
+
+// Implementation layers:
+rtlsdr_set_center_freq()
+    ├─→ r820t_set_freq()
+    │       ├─→ Calculate PLL divider
+    │       └─→ rtlsdr_i2c_write() → USB control transfer
+    └─→ rtlsdr_write_reg() → USB control transfer
+
+rtlsdr_read_async()
+    ├─→ Allocate USB transfer buffers
+    ├─→ libusb_submit_transfer() × NUM_BUFFERS
+    └─→ libusb_handle_events() loop
+            └─→ usb_callback()
+                    └─→ User callback with IQ samples
+</code></pre>
+            </div>
+            
+            <h3>A.8 Python Wrapper (pyrtlsdr) Implementation</h3>
+            
+            <div class="card">
+                <h4>ctypes-Based Python Wrapper</h4>
+                
+                <pre><code>#!/usr/bin/env python3
+"""
+pyrtlsdr - Python wrapper for librtlsdr using ctypes
+"""
+import ctypes
+from ctypes import *
+
+# Load shared library
+try:
+    librtlsdr = CDLL('librtlsdr.so')  # Linux
+except:
+    librtlsdr = CDLL('rtlsdr.dll')    # Windows
+
+# Define callback type
+rtlsdr_read_async_cb_t = CFUNCTYPE(None, POINTER(c_ubyte), c_uint32, c_void_p)
+
+# Function prototypes
+librtlsdr.rtlsdr_open.argtypes = [POINTER(c_void_p), c_uint32]
+librtlsdr.rtlsdr_open.restype = c_int
+
+librtlsdr.rtlsdr_close.argtypes = [c_void_p]
+librtlsdr.rtlsdr_close.restype = c_int
+
+librtlsdr.rtlsdr_set_center_freq.argtypes = [c_void_p, c_uint32]
+librtlsdr.rtlsdr_set_center_freq.restype = c_int
+
+librtlsdr.rtlsdr_set_sample_rate.argtypes = [c_void_p, c_uint32]
+librtlsdr.rtlsdr_set_sample_rate.restype = c_int
+
+librtlsdr.rtlsdr_read_async.argtypes = [
+    c_void_p, 
+    rtlsdr_read_async_cb_t, 
+    c_void_p,
+    c_uint32,
+    c_uint32
+]
+librtlsdr.rtlsdr_read_async.restype = c_int
+
+# Python class wrapper
+class RtlSdr:
+    def __init__(self, device_index=0):
+        self.dev_p = c_void_p()
+        ret = librtlsdr.rtlsdr_open(byref(self.dev_p), device_index)
+        if ret != 0:
+            raise IOError("Failed to open RTL-SDR device")
+        
+        self.callback = None
+        
+    def close(self):
+        if self.dev_p:
+            librtlsdr.rtlsdr_close(self.dev_p)
+            self.dev_p = None
+    
+    def set_center_freq(self, freq):
+        """Set center frequency in Hz"""
+        ret = librtlsdr.rtlsdr_set_center_freq(self.dev_p, int(freq))
+        if ret != 0:
+            raise IOError("Failed to set frequency")
+    
+    def set_sample_rate(self, rate):
+        """Set sample rate in Hz"""
+        ret = librtlsdr.rtlsdr_set_sample_rate(self.dev_p, int(rate))
+        if ret != 0:
+            raise IOError("Failed to set sample rate")
+    
+    def read_samples_async(self, callback, num_samples=0):
+        """
+        Read samples asynchronously
+        callback: function(samples, context) where samples is numpy array
+        """
+        import numpy as np
+        
+        # Wrapper to convert C buffer to numpy array
+        @rtlsdr_read_async_cb_t
+        def c_callback(buf, length, ctx):
+            # Convert C buffer to numpy array
+            samples = np.ctypeslib.as_array(buf, shape=(length,))
+            # Convert to IQ format
+            iq = samples.astype(np.float32) - 127.5
+            i = iq[0::2]
+            q = iq[1::2]
+            callback(i + 1j*q)
+        
+        self.callback = c_callback  # Keep reference to prevent GC
+        
+        librtlsdr.rtlsdr_read_async(
+            self.dev_p,
+            self.callback,
+            None,
+            0,  # Default number of buffers
+            0   # Default buffer size
+        )
+
+# Usage example
+if __name__ == '__main__':
+    import numpy as np
+    
+    sdr = RtlSdr()
+    sdr.set_center_freq(1090e6)
+    sdr.set_sample_rate(2.048e6)
+    
+    def process_samples(iq_samples):
+        # iq_samples is complex numpy array
+        magnitude = np.abs(iq_samples)
+        print(f"Received {len(iq_samples)} samples, max: {magnitude.max()}")
+    
+    sdr.read_samples_async(process_samples)
+</code></pre>
+            </div>
+            
+            <h3>A.9 Building the Library from Source</h3>
+            
+            <div class="card">
+                <h4>CMake Build System</h4>
+                
+                <pre><code># librtlsdr CMakeLists.txt structure
+cmake_minimum_required(VERSION 3.0)
+project(rtlsdr C)
+
+# Dependencies
+find_package(PkgConfig REQUIRED)
+pkg_check_modules(LIBUSB libusb-1.0 REQUIRED)
+
+# Source files
+set(SOURCES
+    src/librtlsdr.c      # Main API implementation
+    src/tuner_r82xx.c    # R820T/R820T2 tuner driver
+    src/convenience.c    # Helper functions
+)
+
+# Build shared library
+add_library(rtlsdr SHARED ${SOURCES})
+target_include_directories(rtlsdr PUBLIC include ${LIBUSB_INCLUDE_DIRS})
+target_link_libraries(rtlsdr ${LIBUSB_LIBRARIES})
+
+# Install
+install(TARGETS rtlsdr LIBRARY DESTINATION lib)
+install(FILES include/rtl-sdr.h DESTINATION include)
+</code></pre>
+                
+                <h4>Build Commands</h4>
+                
+                <pre><code># Clone and build librtlsdr
+git clone https://github.com/osmocom/rtl-sdr.git
+cd rtl-sdr
+mkdir build && cd build
+
+# Configure with CMake
+cmake .. -DCMAKE_INSTALL_PREFIX=/usr/local
+
+# Compile
+make -j4
+
+# Install
+sudo make install
+sudo ldconfig  # Update library cache
+
+# Build Python wrapper
+pip install pyrtlsdr
+</code></pre>
+            </div>
+            
+            <h3>A.10 Key Takeaways: Library Architecture</h3>
+            
+            <div class="success-box">
+                <h4>How RTL-SDR Libraries Work</h4>
+                
+                <p><strong>Layer 1: Hardware (USB)</strong></p>
+                <ul>
+                    <li>RTL2832U demodulator chip with USB 2.0 interface</li>
+                    <li>R820T2 tuner controlled via I2C through RTL2832U</li>
+                    <li>Bulk endpoint 0x81 streams IQ samples continuously</li>
+                </ul>
+                
+                <p><strong>Layer 2: libusb (USB Communication)</strong></p>
+                <ul>
+                    <li>Control transfers for register access (frequency, gain, sample rate)</li>
+                    <li>Asynchronous bulk transfers for sample streaming</li>
+                    <li>Event loop handles callbacks when data arrives</li>
+                </ul>
+                
+                <p><strong>Layer 3: librtlsdr (Abstraction)</strong></p>
+                <ul>
+                    <li>High-level API: <code>rtlsdr_set_center_freq()</code>, <code>rtlsdr_read_async()</code></li>
+                    <li>Register/I2C protocol implementation</li>
+                    <li>Tuner-specific code (R820T2 initialization, gain tables)</li>
+                    <li>Buffer management and data streaming</li>
+                </ul>
+                
+                <p><strong>Layer 4: Language Bindings (Python, etc.)</strong></p>
+                <ul>
+                    <li>ctypes wrapper exposes librtlsdr to Python</li>
+                    <li>Converts C callbacks to Python functions</li>
+                    <li>NumPy integration for sample arrays</li>
+                </ul>
+                
+                <p><strong>To build your own SDR library:</strong></p>
+                <ol>
+                    <li>Study USB device descriptors (<code>lsusb -v</code>)</li>
+                    <li>Use libusb for USB communication</li>
+                    <li>Implement register control protocol</li>
+                    <li>Handle tuner-specific I2C commands</li>
+                    <li>Set up asynchronous bulk transfers</li>
+                    <li>Create high-level API wrapping low-level operations</li>
+                </ol>
+            </div>
+            
         </div>
         
         <footer>
