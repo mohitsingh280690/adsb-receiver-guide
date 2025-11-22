@@ -1,0 +1,3196 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ADS-B Receiver Implementation Guide - RTL-SDR</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            line-height: 1.6;
+            color: #333;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            padding: 20px;
+        }
+        
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 10px;
+            box-shadow: 0 10px 40px rgba(0,0,0,0.3);
+            overflow: hidden;
+        }
+        
+        header {
+            background: linear-gradient(135deg, #1e3c72 0%, #2a5298 100%);
+            color: white;
+            padding: 40px;
+            text-align: center;
+        }
+        
+        header h1 {
+            font-size: 2.5em;
+            margin-bottom: 10px;
+        }
+        
+        header p {
+            font-size: 1.1em;
+            opacity: 0.9;
+        }
+        
+        .content {
+            padding: 40px;
+        }
+        
+        h2 {
+            color: #2a5298;
+            margin-top: 40px;
+            margin-bottom: 20px;
+            padding-bottom: 10px;
+            border-bottom: 3px solid #667eea;
+            font-size: 1.8em;
+        }
+        
+        h2:first-child {
+            margin-top: 0;
+        }
+        
+        h3 {
+            color: #1e3c72;
+            margin-top: 30px;
+            margin-bottom: 15px;
+            font-size: 1.4em;
+        }
+        
+        h4 {
+            color: #444;
+            margin-top: 20px;
+            margin-bottom: 10px;
+            font-size: 1.1em;
+        }
+        
+        p, li {
+            margin-bottom: 10px;
+        }
+        
+        ul, ol {
+            margin-left: 30px;
+            margin-bottom: 20px;
+        }
+        
+        .info-box {
+            background: #e8f4f8;
+            border-left: 4px solid #2196F3;
+            padding: 20px;
+            margin: 20px 0;
+            border-radius: 5px;
+        }
+        
+        .warning-box {
+            background: #fff3cd;
+            border-left: 4px solid #ffc107;
+            padding: 20px;
+            margin: 20px 0;
+            border-radius: 5px;
+        }
+        
+        .success-box {
+            background: #d4edda;
+            border-left: 4px solid #28a745;
+            padding: 20px;
+            margin: 20px 0;
+            border-radius: 5px;
+        }
+        
+        code {
+            background: #f4f4f4;
+            padding: 3px 8px;
+            border-radius: 3px;
+            font-family: 'Courier New', monospace;
+            font-size: 0.9em;
+            color: #c7254e;
+        }
+        
+        pre {
+            background: #2d2d2d;
+            color: #f8f8f2;
+            padding: 20px;
+            border-radius: 5px;
+            overflow-x: auto;
+            margin: 20px 0;
+            font-family: 'Courier New', monospace;
+            line-height: 1.4;
+        }
+        
+        pre code {
+            background: transparent;
+            color: inherit;
+            padding: 0;
+        }
+        
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin: 20px 0;
+            background: white;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+        }
+        
+        th {
+            background: #2a5298;
+            color: white;
+            padding: 12px;
+            text-align: left;
+            font-weight: 600;
+        }
+        
+        td {
+            padding: 12px;
+            border-bottom: 1px solid #ddd;
+        }
+        
+        tr:hover {
+            background: #f5f5f5;
+        }
+        
+        .step-number {
+            display: inline-block;
+            background: #667eea;
+            color: white;
+            width: 30px;
+            height: 30px;
+            line-height: 30px;
+            text-align: center;
+            border-radius: 50%;
+            margin-right: 10px;
+            font-weight: bold;
+        }
+        
+        .card {
+            background: #f8f9fa;
+            border-radius: 8px;
+            padding: 20px;
+            margin: 20px 0;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+        
+        .spec-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: 20px;
+            margin: 20px 0;
+        }
+        
+        .spec-item {
+            background: white;
+            padding: 15px;
+            border-left: 4px solid #667eea;
+            border-radius: 5px;
+        }
+        
+        .spec-label {
+            font-weight: bold;
+            color: #2a5298;
+            margin-bottom: 5px;
+        }
+        
+        footer {
+            background: #2d3436;
+            color: white;
+            text-align: center;
+            padding: 20px;
+            margin-top: 40px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>🛩️ ADS-B Receiver Implementation Guide</h1>
+            <p>Complete Practical Guide for Building an ADS-B Receiver Using RTL-SDR</p>
+            <p style="font-size: 0.9em; margin-top: 10px;">Track aircraft in real-time by decoding 1090 MHz transponder signals</p>
+        </header>
+        
+        <div class="content">
+            <h2>📋 Project Overview</h2>
+            
+            <div class="info-box">
+                <h4>What You'll Build</h4>
+                <p>An ADS-B (Automatic Dependent Surveillance-Broadcast) receiver that captures radio signals at 1090 MHz from aircraft transponders, decodes the digital messages, and displays real-time aircraft positions, altitudes, speeds, and callsigns on a web-based map.</p>
+            </div>
+            
+            <div class="card">
+                <h3>Understanding the Data Flow</h3>
+                
+                <h4>What the RTL-SDR Hardware Does</h4>
+                
+                <p>The RTL-SDR dongle contains two main chips that work together:</p>
+                
+                <ol>
+                    <li><strong>R820T2 Tuner Chip:</strong>
+                        <ul>
+                            <li>Receives the 1090 MHz RF signal from the antenna</li>
+                            <li><strong>Downconverts</strong> the high frequency (1090 MHz) to a lower intermediate frequency (IF) or directly to baseband (near 0 Hz)</li>
+                            <li>Applies programmable gain amplification (0-49.6 dB)</li>
+                            <li>Filters out unwanted frequencies</li>
+                        </ul>
+                    </li>
+                    
+                    <li><strong>RTL2832U Demodulator Chip:</strong>
+                        <ul>
+                            <li>Contains an 8-bit Analog-to-Digital Converter (ADC)</li>
+                            <li><strong>Samples the signal</strong> at 2 million samples per second (2 MS/s)</li>
+                            <li>Produces <strong>IQ samples</strong> - pairs of values representing the signal</li>
+                            <li>Sends raw digital data to computer via USB 2.0</li>
+                        </ul>
+                    </li>
+                </ol>
+                
+                <h4>Raw Data Format from RTL-SDR</h4>
+                
+                <div class="spec-grid">
+                    <div class="spec-item">
+                        <div class="spec-label">Data Format</div>
+                        <div>Interleaved I/Q bytes</div>
+                        <small>[I₀, Q₀, I₁, Q₁, I₂, Q₂, ...]</small>
+                    </div>
+                    <div class="spec-item">
+                        <div class="spec-label">Values</div>
+                        <div>Unsigned 8-bit (0-255)</div>
+                        <small>Centered at 127 (representing zero)</small>
+                    </div>
+                    <div class="spec-item">
+                        <div class="spec-label">Sample Rate</div>
+                        <div>2,000,000 samples/second</div>
+                        <small>Each sample = I + Q pair</small>
+                    </div>
+                    <div class="spec-item">
+                        <div class="spec-label">Data Rate</div>
+                        <div>4 MB/s continuous stream</div>
+                        <small>2 bytes per sample × 2 MS/s</small>
+                    </div>
+                </div>
+                
+                <p><strong>What is I/Q Data?</strong></p>
+                
+                <ul>
+                    <li><strong>I (In-phase):</strong> Represents the cosine component of the signal (real part)</li>
+                    <li><strong>Q (Quadrature):</strong> Represents the sine component of the signal (imaginary part, 90° phase shifted)</li>
+                    <li><strong>Together:</strong> I and Q form a complex number that completely describes both amplitude AND phase of the signal</li>
+                    <li><strong>Why I/Q?</strong> Preserves all information needed to demodulate any signal type in software</li>
+                </ul>
+                
+                <p><strong>Example raw bytes from RTL-SDR:</strong></p>
+                <pre><code>// USB data stream (hex values):
+7F 80 81 7E 85 7A 90 70 A5 60 B0 55 ...
+↑  ↑  ↑  ↑  ↑  ↑  ↑  ↑  ↑  ↑  ↑  ↑
+I₀ Q₀ I₁ Q₁ I₂ Q₂ I₃ Q₃ I₄ Q₄ I₅ Q₅
+
+// Converted to signed values (subtract 127):
+I₀ = 0,   Q₀ = 1     → Complex: 0 + 1j
+I₁ = 2,   Q₁ = -1    → Complex: 2 - 1j
+I₂ = 6,   Q₂ = -7    → Complex: 6 - 7j
+...</code></pre>
+                
+                <h4>What the Driver Does (librtlsdr)</h4>
+                
+                <p>The driver software (installed via Zadig on Windows, or librtlsdr on Linux) acts as a translator between your application and the hardware:</p>
+                
+                <ol>
+                    <li><strong>Hardware Control:</strong>
+                        <ul>
+                            <li>Communicates with RTL-SDR via USB using libusb library</li>
+                            <li>Sends commands to set frequency (1090 MHz), sample rate (2 MS/s), and gain</li>
+                            <li>Configures tuner parameters and filters</li>
+                        </ul>
+                    </li>
+                    
+                    <li><strong>Data Reception:</strong>
+                        <ul>
+                            <li>Receives continuous stream of raw bytes via USB bulk transfers</li>
+                            <li>Manages ring buffers to prevent data loss</li>
+                            <li>Handles USB packet assembly (typically 16 KB packets)</li>
+                        </ul>
+                    </li>
+                    
+                    <li><strong>Data Transformation:</strong>
+                        <ul>
+                            <li><strong>Input:</strong> Raw unsigned bytes [0-255] from hardware</li>
+                            <li><strong>Optional conversion:</strong> Can convert to signed floats [-1.0 to +1.0] or leave as bytes</li>
+                            <li><strong>Output to application:</strong> Provides IQ samples via callback function or synchronous read</li>
+                        </ul>
+                    </li>
+                </ol>
+                
+                <p><strong>Driver output formats (depending on library/language):</strong></p>
+                
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Library/Language</th>
+                            <th>Output Format</th>
+                            <th>Description</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr>
+                            <td><strong>librtlsdr (C)</strong></td>
+                            <td><code>uint8_t</code> array</td>
+                            <td>Raw bytes [0-255], interleaved I/Q</td>
+                        </tr>
+                        <tr>
+                            <td><strong>pyrtlsdr (Python)</strong></td>
+                            <td><code>numpy.complex64</code></td>
+                            <td>Complex array, values scaled to [-1, +1]</td>
+                        </tr>
+                        <tr>
+                            <td><strong>rtl-sdr crate (Rust)</strong></td>
+                            <td><code>Vec&lt;u8&gt;</code></td>
+                            <td>Raw bytes [0-255]</td>
+                        </tr>
+                        <tr>
+                            <td><strong>SoapySDR</strong></td>
+                            <td><code>float32</code> I/Q</td>
+                            <td>Normalized float values</td>
+                        </tr>
+                    </tbody>
+                </table>
+                
+                <h4>What dump1090 and pyModeS Do</h4>
+                
+                <p>Decoder software like dump1090 or pyModeS receives the IQ samples and performs <strong>digital signal processing</strong> to extract meaningful information:</p>
+                
+                <p><strong>Step 1: Signal Processing (Raw IQ → Magnitude)</strong></p>
+                <ul>
+                    <li><strong>Input:</strong> Stream of I/Q samples from driver</li>
+                    <li><strong>Process:</strong> Calculate magnitude = √(I² + Q²) for each sample</li>
+                    <li><strong>Output:</strong> Real-valued amplitude data showing signal strength over time</li>
+                    <li><strong>Why:</strong> PPM demodulation only needs amplitude, not phase</li>
+                </ul>
+                
+                <p><strong>Step 2: Preamble Detection (Find Messages)</strong></p>
+                <ul>
+                    <li><strong>Input:</strong> Magnitude data stream</li>
+                    <li><strong>Process:</strong> Search for specific pulse pattern (Mode S preamble: high-low-high-low-gap-high)</li>
+                    <li><strong>Output:</strong> Positions where messages start</li>
+                    <li><strong>Why:</strong> Tells decoder "a message starts here"</li>
+                </ul>
+                
+                <p><strong>Step 3: Demodulation (Pulses → Bits)</strong></p>
+                <ul>
+                    <li><strong>Input:</strong> Magnitude samples starting at preamble</li>
+                    <li><strong>Process:</strong> Decode PPM (Pulse Position Modulation) - compare first half vs second half of each bit period</li>
+                    <li><strong>Output:</strong> Binary data (112 bits for long messages, 56 bits for short)</li>
+                    <li><strong>Example:</strong> [1,0,1,1,0,1,0,0,0,1,0,0,0,0,0,0,0,1,1,0,1,0,1,1,0,...]</li>
+                </ul>
+                
+                <p><strong>Step 4: Error Detection (CRC Validation)</strong></p>
+                <ul>
+                    <li><strong>Input:</strong> 112-bit or 56-bit binary message</li>
+                    <li><strong>Process:</strong> Calculate 24-bit CRC checksum, compare with received CRC</li>
+                    <li><strong>Output:</strong> Valid message (CRC matches) or rejected (CRC fails)</li>
+                    <li><strong>Why:</strong> Ensures message wasn't corrupted by noise</li>
+                </ul>
+                
+                <p><strong>Step 5: Message Decoding (Bits → Information)</strong></p>
+                <ul>
+                    <li><strong>Input:</strong> Validated binary message</li>
+                    <li><strong>Process:</strong> Parse bit fields according to ADS-B specification
+                        <ul>
+                            <li>Extract Downlink Format (DF) - message type</li>
+                            <li>Extract ICAO address (24-bit aircraft ID)</li>
+                            <li>Decode payload based on type (callsign, position, velocity, etc.)</li>
+                        </ul>
+                    </li>
+                    <li><strong>Output:</strong> Structured data: ICAO=4840D6, Callsign="BAW123", Altitude=37000 ft</li>
+                </ul>
+                
+                <p><strong>Step 6: Position Calculation (CPR Decoding)</strong></p>
+                <ul>
+                    <li><strong>Input:</strong> Pair of position messages (even/odd frames) with CPR-encoded coordinates</li>
+                    <li><strong>Process:</strong> Apply CPR (Compact Position Reporting) algorithm to decode compressed lat/lon</li>
+                    <li><strong>Output:</strong> Precise latitude/longitude coordinates</li>
+                    <li><strong>Why:</strong> Aircraft transmit compressed positions (17 bits each for lat/lon) that need special decoding</li>
+                </ul>
+                
+                <p><strong>Step 7: Aircraft Tracking (State Management)</strong></p>
+                <ul>
+                    <li><strong>Input:</strong> Decoded messages from many aircraft</li>
+                    <li><strong>Process:</strong> Maintain database of aircraft states, update fields as new messages arrive</li>
+                    <li><strong>Output:</strong> Complete aircraft records with position, altitude, speed, heading, callsign</li>
+                </ul>
+                
+                <p><strong>Step 8: Output Formatting</strong></p>
+                <ul>
+                    <li><strong>Input:</strong> Aircraft database</li>
+                    <li><strong>Process:</strong> Format data for consumption (JSON, BaseStation CSV, Beast binary)</li>
+                    <li><strong>Output:</strong> 
+                        <ul>
+                            <li>JSON files for web interfaces</li>
+                            <li>Network streams on TCP ports (30002, 30003, 30005)</li>
+                            <li>HTTP server for web browser access</li>
+                        </ul>
+                    </li>
+                </ul>
+                
+                <div class="info-box">
+                    <strong>Performance Note:</strong> dump1090 is written in highly optimized C and processes this entire pipeline in real-time, handling 500-3000 messages per second while using minimal CPU (5-15% on a Raspberry Pi).
+                </div>
+            </div>
+            
+            <div class="card">
+                <h3>Complete Signal Flow Diagram</h3>
+                <p><strong>From RF to Your Screen:</strong></p>
+                <ol>
+                    <li><strong>Aircraft Transmitter</strong> → Broadcasts ADS-B messages at 1090 MHz (Mode S Extended Squitter)</li>
+                    <li><strong>Antenna</strong> → Receives RF signals (quarter-wave or collinear, vertically polarized)</li>
+                    <li><strong>RTL-SDR Hardware</strong> → Downconverts to baseband, samples at 2 MS/s
+                        <ul>
+                            <li><strong>Output:</strong> 4 MB/s stream of IQ bytes [I₀,Q₀,I₁,Q₁,...]</li>
+                        </ul>
+                    </li>
+                    <li><strong>Driver (librtlsdr)</strong> → Manages USB communication, provides IQ samples to software
+                        <ul>
+                            <li><strong>Output:</strong> IQ samples (bytes or floats depending on library)</li>
+                        </ul>
+                    </li>
+                    <li><strong>Decoder Software (dump1090/pyModeS)</strong> → Processes IQ data through:
+                        <ul>
+                            <li>Magnitude calculation → Preamble detection → PPM demodulation → CRC validation → Message decoding → CPR position calculation → Aircraft tracking</li>
+                            <li><strong>Output:</strong> Structured aircraft data (ICAO, position, altitude, speed, callsign)</li>
+                        </ul>
+                    </li>
+                    <li><strong>Web Interface</strong> → Displays aircraft on interactive map with telemetry data</li>
+                </ol>
+            </div>
+            
+            <h2>🛠️ Hardware Requirements</h2>
+            
+            <h3>1. RTL-SDR Device</h3>
+            
+            <table>
+                <thead>
+                    <tr>
+                        <th>Component</th>
+                        <th>Specification</th>
+                        <th>Recommended Models</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr>
+                        <td><strong>RTL-SDR Dongle</strong></td>
+                        <td>RTL2832U + R820T2/E4000 tuner<br>Frequency range: 24-1766 MHz<br>Sample rate: 2.0-2.4 MS/s</td>
+                        <td>
+                            • RTL-SDR Blog V3/V4 ($30-40)<br>
+                            • FlightAware ProStick Plus ($25)<br>
+                            • NooElec NESDR SMArt v5 ($35)
+                        </td>
+                    </tr>
+                    <tr>
+                        <td><strong>Key Features</strong></td>
+                        <td colspan="2">
+                            • TCXO (Temperature Compensated Crystal Oscillator) for stability<br>
+                            • Bias-Tee capability (for powering external LNA)<br>
+                            • SMA connector (standard)<br>
+                            • USB 2.0 interface
+                        </td>
+                    </tr>
+                </tbody>
+            </table>
+            
+            <div class="spec-grid">
+                <div class="spec-item">
+                    <div class="spec-label">Frequency Range</div>
+                    <div>24-1766 MHz (R820T2)</div>
+                    <small>Covers 1090 MHz ADS-B frequency</small>
+                </div>
+                <div class="spec-item">
+                    <div class="spec-label">Sample Rate</div>
+                    <div>2.0-3.2 MS/s</div>
+                    <small>2.0 MS/s optimal for ADS-B</small>
+                </div>
+                <div class="spec-item">
+                    <div class="spec-label">ADC Resolution</div>
+                    <div>8-bit I/Q</div>
+                    <small>256 levels per channel</small>
+                </div>
+                <div class="spec-item">
+                    <div class="spec-label">Data Rate</div>
+                    <div>~4 MB/s @ 2 MS/s</div>
+                    <small>Continuous USB 2.0 transfer</small>
+                </div>
+            </div>
+            
+            <h3>2. Antenna System</h3>
+            
+            <div class="warning-box">
+                <h4>⚠️ Critical: Antenna is the Most Important Component</h4>
+                <p>Your reception range is primarily determined by antenna quality and placement. A $5 DIY antenna can outperform expensive SDRs with poor placement.</p>
+            </div>
+            
+            <h4>Antenna Options</h4>
+            
+            <table>
+                <thead>
+                    <tr>
+                        <th>Type</th>
+                        <th>Gain</th>
+                        <th>Cost</th>
+                        <th>Difficulty</th>
+                        <th>Best For</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr>
+                        <td><strong>Quarter-Wave Ground Plane</strong></td>
+                        <td>2-3 dBi</td>
+                        <td>$0-10 (DIY)</td>
+                        <td>Easy</td>
+                        <td>Testing, omnidirectional coverage</td>
+                    </tr>
+                    <tr>
+                        <td><strong>Collinear Dipole Array</strong></td>
+                        <td>5-7 dBi</td>
+                        <td>$5-15 (DIY)</td>
+                        <td>Medium</td>
+                        <td>Better high-altitude reception</td>
+                    </tr>
+                    <tr>
+                        <td><strong>FlightAware 1090 MHz</strong></td>
+                        <td>5.5 dBi</td>
+                        <td>$20-30</td>
+                        <td>None (ready)</td>
+                        <td>Plug-and-play, reliable</td>
+                    </tr>
+                    <tr>
+                        <td><strong>Commercial Collinear</strong></td>
+                        <td>6-9 dBi</td>
+                        <td>$50-150</td>
+                        <td>None</td>
+                        <td>Maximum range, professional</td>
+                    </tr>
+                </tbody>
+            </table>
+            
+            <div class="card">
+                <h4>DIY Quarter-Wave Ground Plane Antenna</h4>
+                <p><strong>Materials needed:</strong></p>
+                <ul>
+                    <li>Solid copper wire (14-18 AWG, ~1.5mm diameter)</li>
+                    <li>SMA female chassis mount connector</li>
+                    <li>Wire cutters, ruler, soldering iron</li>
+                </ul>
+                
+                <p><strong>Dimensions for 1090 MHz:</strong></p>
+                <ul>
+                    <li><strong>Vertical element:</strong> 69 mm (λ/4 at 1090 MHz)</li>
+                    <li><strong>4 Radial elements:</strong> 69 mm each, angled 45° downward</li>
+                    <li><strong>Total height:</strong> ~120 mm from radials to tip</li>
+                </ul>
+                
+                <p><strong>Construction:</strong></p>
+                <ol>
+                    <li>Solder vertical element to SMA center pin</li>
+                    <li>Solder 4 radials to SMA ground (outer shell), spaced 90° apart</li>
+                    <li>Bend radials downward at 45° angle</li>
+                    <li>Test with RTL-SDR - you should see signals immediately</li>
+                </ol>
+                
+                <div class="info-box">
+                    <strong>Pro Tip:</strong> Use a PVC pipe cap as a housing for weatherproofing outdoor installations.
+                </div>
+            </div>
+            
+            <h4>Coaxial Cable Requirements</h4>
+            
+            <table>
+                <thead>
+                    <tr>
+                        <th>Cable Type</th>
+                        <th>Loss @ 1090 MHz</th>
+                        <th>Max Length</th>
+                        <th>Use Case</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr>
+                        <td>RG-58</td>
+                        <td>~1.0 dB/meter</td>
+                        <td>< 3 meters</td>
+                        <td>Short indoor runs only</td>
+                    </tr>
+                    <tr>
+                        <td>LMR-200 / RG-8X</td>
+                        <td>~0.4 dB/meter</td>
+                        <td>3-10 meters</td>
+                        <td>Typical installations</td>
+                    </tr>
+                    <tr>
+                        <td>LMR-400</td>
+                        <td>~0.22 dB/meter</td>
+                        <td>> 10 meters</td>
+                        <td>Long runs, roof mounting</td>
+                    </tr>
+                </tbody>
+            </table>
+            
+            <div class="warning-box">
+                <strong>Important:</strong> Every 3 dB of cable loss cuts your reception range in half! Use the shortest, highest-quality cable possible.
+            </div>
+            
+            <h4>Optional but Recommended: LNA and Filter</h4>
+            
+            <div class="spec-grid">
+                <div class="spec-item">
+                    <div class="spec-label">SAW Filter (1090 MHz)</div>
+                    <div>Bandwidth: 3-5 MHz centered on 1090</div>
+                    <small>Rejects out-of-band interference (cellular, broadcast FM)</small>
+                </div>
+                <div class="spec-item">
+                    <div class="spec-label">LNA (Low Noise Amplifier)</div>
+                    <div>Gain: 15-25 dB, NF < 1.5 dB</div>
+                    <small>Mount at antenna to overcome cable loss</small>
+                </div>
+            </div>
+            
+            <p><strong>Recommended Products:</strong></p>
+            <ul>
+                <li><strong>FlightAware ProStick Plus</strong> - USB dongle with integrated LNA + filter ($25)</li>
+                <li><strong>Nooelec SAWbird+ ADS-B</strong> - External LNA + filter module ($45)</li>
+                <li><strong>RTL-SDR Blog ADS-B Filter</strong> - Passive filter only ($20)</li>
+            </ul>
+            
+            <h3>3. Computer Requirements</h3>
+            
+            <div class="card">
+                <h4>Minimum Specifications</h4>
+                <ul>
+                    <li><strong>CPU:</strong> Dual-core 1.0 GHz+ (Raspberry Pi 3B+ works)</li>
+                    <li><strong>RAM:</strong> 512 MB minimum, 1 GB recommended</li>
+                    <li><strong>Storage:</strong> 8 GB for OS + software, 32 GB+ if logging data</li>
+                    <li><strong>USB:</strong> USB 2.0 port (480 Mbps sufficient for 4 MB/s data rate)</li>
+                    <li><strong>Network:</strong> Ethernet or WiFi for web interface access</li>
+                </ul>
+                
+                <h4>Popular Platforms</h4>
+                <ul>
+                    <li><strong>Raspberry Pi 4/5</strong> - Most popular, low power, headless operation</li>
+                    <li><strong>Windows PC</strong> - Easy setup with GUI tools, higher power consumption</li>
+                    <li><strong>Linux PC/Server</strong> - Best performance, flexible deployment</li>
+                    <li><strong>Orange Pi / Rock Pi</strong> - Budget alternatives to Raspberry Pi</li>
+                </ul>
+            </div>
+            
+            <h2>💻 Software Installation & Setup</h2>
+            
+            <div class="info-box">
+                <h4>Installation Path Overview</h4>
+                <p>The setup process varies by operating system. Choose your platform below and follow the specific instructions.</p>
+            </div>
+            
+            <h3>Windows Installation (Detailed)</h3>
+            
+            <div class="card">
+                <h4><span class="step-number">1</span>Install RTL-SDR Driver with Zadig</h4>
+                
+                <p><strong>Why Zadig?</strong> Windows detects RTL-SDR as a DVB-T TV tuner by default. We need to replace the driver with WinUSB/libusb to enable SDR functionality.</p>
+                
+                <ol>
+                    <li><strong>Download Zadig:</strong>
+                        <ul>
+                            <li>Visit <code>https://zadig.akeo.ie/</code></li>
+                            <li>Download latest version (zadig-2.8.exe or newer)</li>
+                        </ul>
+                    </li>
+                    
+                    <li><strong>Plug in RTL-SDR dongle</strong> - Wait for Windows to detect it</li>
+                    
+                    <li><strong>Run Zadig as Administrator:</strong>
+                        <ul>
+                            <li>Right-click → "Run as administrator"</li>
+                            <li>Go to <strong>Options → List All Devices</strong></li>
+                        </ul>
+                    </li>
+                    
+                    <li><strong>Select RTL-SDR device:</strong>
+                        <ul>
+                            <li>In dropdown, find "Bulk-In, Interface (Interface 0)" or "RTL2832U" or "RTL2838UHIDIR"</li>
+                            <li>Current driver will show as "NONE" or "usbser" or "WinUSB"</li>
+                        </ul>
+                    </li>
+                    
+                    <li><strong>Install WinUSB driver:</strong>
+                        <ul>
+                            <li>Target driver: Select <strong>WinUSB</strong> from dropdown</li>
+                            <li>Click <strong>"Replace Driver"</strong> or <strong>"Install Driver"</strong></li>
+                            <li>Wait for confirmation message</li>
+                        </ul>
+                    </li>
+                </ol>
+                
+                <div class="success-box">
+                    <strong>✓ Verification:</strong> Device Manager should show "Bulk-In, Interface (Interface 0)" under "Universal Serial Bus devices" (not under "Sound, video and game controllers").
+                </div>
+            </div>
+            
+            <div class="card">
+                <h4><span class="step-number">2</span>Install Decoder Software (dump1090 for Windows)</h4>
+                
+                <p><strong>Option A: dump1090-fa (FlightAware Fork) - Recommended</strong></p>
+                
+                <ol>
+                    <li><strong>Download pre-compiled binary:</strong>
+                        <ul>
+                            <li>Visit <code>https://github.com/wiedehopf/dump1090-fa-win</code></li>
+                            <li>Download latest release ZIP</li>
+                            <li>Extract to <code>C:\dump1090</code></li>
+                        </ul>
+                    </li>
+                    
+                    <li><strong>Test the installation:</strong>
+                        <pre><code>cd C:\dump1090
+.\dump1090.exe --interactive</code></pre>
+                        <p>You should see aircraft messages if signals are being received!</p>
+                    </li>
+                </ol>
+                
+                <p><strong>Option B: RTL1090 (Windows GUI Alternative)</strong></p>
+                <ul>
+                    <li>Download from <code>http://rtl1090.web99.de/</code></li>
+                    <li>Simple GUI interface, good for beginners</li>
+                    <li>Built-in map display</li>
+                </ul>
+                
+                <p><strong>Option C: ModeSdeco2 (Advanced)</strong></p>
+                <ul>
+                    <li>Professional-grade decoder with database</li>
+                    <li>Download from <code>https://www.modesdeco2.com/</code></li>
+                    <li>Includes aircraft database, photos, routes</li>
+                </ul>
+            </div>
+            
+            <div class="card">
+                <h4><span class="step-number">3</span>Run dump1090 with Web Interface</h4>
+                
+                <pre><code># Basic command with web server on port 8080
+.\dump1090.exe --net --interactive --gain -10
+
+# With specific gain setting (49.6 dB recommended)
+.\dump1090.exe --net --interactive --gain 49.6 --lat YOUR_LAT --lon YOUR_LON
+
+# Enable all output formats
+.\dump1090.exe --net --interactive --gain 49.6 `
+  --lat 37.7749 --lon -122.4194 `
+  --write-json C:\dump1090\data `
+  --net-bind-address 0.0.0.0</code></pre>
+                
+                <p><strong>Command Parameters Explained:</strong></p>
+                <ul>
+                    <li><code>--net</code> - Enable networking (web interface, data feeds)</li>
+                    <li><code>--interactive</code> - Show live aircraft table in terminal</li>
+                    <li><code>--gain -10</code> - Auto gain (or use 49.6 for manual)</li>
+                    <li><code>--lat / --lon</code> - Your receiver location (for accurate range circles)</li>
+                    <li><code>--write-json</code> - Directory for JSON output files</li>
+                    <li><code>--net-bind-address 0.0.0.0</code> - Allow access from network</li>
+                </ul>
+                
+                <div class="success-box">
+                    <strong>✓ Access Web Interface:</strong> Open browser to <code>http://localhost:8080</code> to see the live map!
+                </div>
+            </div>
+            
+            <h3>Linux Installation (Debian/Ubuntu/Raspberry Pi OS)</h3>
+            
+            <div class="card">
+                <h4><span class="step-number">1</span>Blacklist DVB-T Drivers</h4>
+                
+                <p>Prevent the kernel from loading DVB-T TV tuner drivers:</p>
+                
+                <pre><code># Create blacklist file
+sudo nano /etc/modprobe.d/blacklist-rtl.conf
+
+# Add these lines:
+blacklist dvb_usb_rtl28xxu
+blacklist rtl2832
+blacklist rtl2830
+
+# Save and reboot
+sudo reboot</code></pre>
+            </div>
+            
+            <div class="card">
+                <h4><span class="step-number">2</span>Install Dependencies and RTL-SDR Library</h4>
+                
+                <pre><code># Update package lists
+sudo apt update
+
+# Install build tools and dependencies
+sudo apt install -y \
+  build-essential \
+  cmake \
+  pkg-config \
+  libusb-1.0-0-dev \
+  git
+
+# Clone and build rtl-sdr library
+cd ~
+git clone https://github.com/osmocom/rtl-sdr.git
+cd rtl-sdr
+mkdir build && cd build
+cmake ../ -DINSTALL_UDEV_RULES=ON -DDETACH_KERNEL_DRIVER=ON
+make
+sudo make install
+sudo ldconfig
+
+# Copy udev rules for non-root access
+sudo cp ../rtl-sdr.rules /etc/udev/rules.d/
+sudo udevadm control --reload-rules</code></pre>
+                
+                <div class="success-box">
+                    <strong>✓ Test RTL-SDR:</strong> Run <code>rtl_test</code> - you should see device info without errors!
+                </div>
+            </div>
+            
+            <div class="card">
+                <h4><span class="step-number">3</span>Install dump1090-fa (FlightAware Version)</h4>
+                
+                <pre><code># Method 1: Install from FlightAware repository (Recommended for Raspberry Pi)
+wget -O - https://flightaware.com/adsb/piaware/files/packages/flightaware-apt-repository_1.2_all.deb
+sudo dpkg -i flightaware-apt-repository_1.2_all.deb
+sudo apt update
+sudo apt install -y dump1090-fa
+
+# Method 2: Build from source (any Linux)
+cd ~
+git clone https://github.com/flightaware/dump1090.git dump1090-fa
+cd dump1090-fa
+make
+sudo make install</code></pre>
+            </div>
+            
+            <div class="card">
+                <h4><span class="step-number">4</span>Configure and Run dump1090-fa</h4>
+                
+                <p><strong>If installed from repository (runs as service):</strong></p>
+                
+                <pre><code># Edit configuration
+sudo nano /etc/default/dump1090-fa
+
+# Key settings to modify:
+# RECEIVER_LOCATION="--lat 37.7749 --lon -122.4194"
+# DECODER_OPTIONS="--max-range 300"
+# NET_OPTIONS="--net --net-heartbeat 60 --net-ro-size 1000 --net-ro-interval 1"
+
+# Restart service
+sudo systemctl restart dump1090-fa
+
+# Check status
+sudo systemctl status dump1090-fa
+
+# View logs
+sudo journalctl -u dump1090-fa -f</code></pre>
+                
+                <p><strong>If built from source (manual run):</strong></p>
+                
+                <pre><code># Run with web interface
+./dump1090 --interactive --net --gain -10 --lat YOUR_LAT --lon YOUR_LON
+
+# Run in background
+nohup ./dump1090 --interactive --net --gain 49.6 \
+  --lat 37.7749 --lon -122.4194 \
+  --write-json /var/www/html/dump1090/data &</code></pre>
+                
+                <div class="success-box">
+                    <strong>✓ Access Web Interface:</strong> Browse to <code>http://YOUR_PI_IP:8080</code>
+                </div>
+            </div>
+            
+            <h3>Alternative: Modern readsb Decoder</h3>
+            
+            <div class="card">
+                <p><strong>Why readsb?</strong> Modern fork of dump1090 with better performance, protobuf support, and active development.</p>
+                
+                <h4>Install readsb on Linux:</h4>
+                
+                <pre><code># Install dependencies
+sudo apt install -y build-essential debhelper libusb-1.0-0-dev \
+  librtlsdr-dev libncurses-dev pkg-config dh-systemd \
+  libbladerf-dev libhackrf-dev liblimesuite-dev git
+
+# Clone and build
+cd ~
+git clone https://github.com/wiedehopf/readsb.git
+cd readsb
+make
+sudo make install
+
+# Run with web interface (wiedehopf includes tar1090 map)
+sudo readsb --device-type rtlsdr --gain -10 --net \
+  --lat 37.7749 --lon -122.4194 \
+  --write-json /run/readsb</code></pre>
+                
+                <p><strong>Install tar1090 (enhanced web interface):</strong></p>
+                
+                <pre><code>sudo bash -c "$(wget -O - https://github.com/wiedehopf/tar1090/raw/master/install.sh)"</code></pre>
+                
+                <div class="success-box">
+                    <strong>✓ Access tar1090:</strong> Browse to <code>http://YOUR_IP/tar1090</code>
+                </div>
+            </div>
+            
+            <h3>Configuration Essentials</h3>
+            
+            <div class="card">
+                <h4>Gain Settings (Critical for Performance)</h4>
+                
+                <p>RTL-SDR gain can be set manually or automatically:</p>
+                
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Setting</th>
+                            <th>Value</th>
+                            <th>When to Use</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr>
+                            <td><code>--gain -10</code></td>
+                            <td>Automatic AGC</td>
+                            <td>Starting point, low RF interference</td>
+                        </tr>
+                        <tr>
+                            <td><code>--gain 49.6</code></td>
+                            <td>Maximum gain</td>
+                            <td>Rural areas, good antenna, minimal interference</td>
+                        </tr>
+                        <tr>
+                            <td><code>--gain 38.6</code></td>
+                            <td>Medium-high</td>
+                            <td>Suburban areas, some interference</td>
+                        </tr>
+                        <tr>
+                            <td><code>--gain 28.0</code></td>
+                            <td>Medium</td>
+                            <td>Urban areas, high interference, near airports</td>
+                        </tr>
+                    </tbody>
+                </table>
+                
+                <div class="warning-box">
+                    <strong>Tuning Gain:</strong> Start with <code>--gain -10</code> (auto). If you see "strong signal" messages or many errors, reduce gain. If aircraft count is low, increase gain gradually.
+                </div>
+            </div>
+            
+            <div class="card">
+                <h4>PPM Calibration (Frequency Correction)</h4>
+                
+                <p>RTL-SDR crystals have frequency errors (±50-100 PPM). Calibrate for accurate decoding:</p>
+                
+                <p><strong>Method 1: Using kalibrate-rtl (GSM signals)</strong></p>
+                
+                <pre><code># Install kal
+sudo apt install kalibrate-rtl
+
+# Scan for GSM towers (depends on your region)
+# US: GSM850
+kal -s GSM850
+
+# Calibrate on found channel (example: channel 190)
+kal -c 190
+
+# Output will show PPM error, e.g., "average absolute error: 52.314 ppm"
+# Use this value: --ppm 52</code></pre>
+                
+                <p><strong>Method 2: Using known ADS-B signals</strong></p>
+                
+                <ul>
+                    <li>Run dump1090 with <code>--ppm 0</code></li>
+                    <li>Look for aircraft at known positions (use FlightRadar24 as reference)</li>
+                    <li>If positions are offset, adjust PPM iteratively</li>
+                    <li>Typical values: -50 to +100 PPM</li>
+                </ul>
+            </div>
+            
+            <div class="card">
+                <h4>Network Output Formats</h4>
+                
+                <p>dump1090/readsb provides multiple network outputs for different consumers:</p>
+                
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Port</th>
+                            <th>Format</th>
+                            <th>Description</th>
+                            <th>Use Case</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr>
+                            <td>30002</td>
+                            <td>Raw</td>
+                            <td>Raw Mode S frames (hex)</td>
+                            <td>Debugging, analysis</td>
+                        </tr>
+                        <tr>
+                            <td>30003</td>
+                            <td>SBS-1 BaseStation</td>
+                            <td>CSV format (MSG,3,...)</td>
+                            <td>Virtual Radar Server, PlanePlotter</td>
+                        </tr>
+                        <tr>
+                            <td>30005</td>
+                            <td>Beast Binary</td>
+                            <td>Efficient binary format</td>
+                            <td>FlightAware, FR24 feeders</td>
+                        </tr>
+                        <tr>
+                            <td>8080</td>
+                            <td>HTTP</td>
+                            <td>Web interface + JSON API</td>
+                            <td>Browser access, custom apps</td>
+                        </tr>
+                    </tbody>
+                </table>
+                
+                <p><strong>Enable all outputs:</strong></p>
+                
+                <pre><code>dump1090 --net --net-ro-port 30002 --net-sbs-port 30003 \
+  --net-bi-port 30004 --net-bo-port 30005</code></pre>
+            </div>
+            
+            <h2>📡 Data Processing & Signal Flow</h2>
+            
+            <div class="info-box">
+                <h4>Understanding the Processing Pipeline</h4>
+                <p>From RF signal to aircraft on your screen, here's what happens at each stage.</p>
+            </div>
+            
+            <h3>Stage 1: RF Signal Reception (1090 MHz)</h3>
+            
+            <div class="card">
+                <h4>ADS-B Signal Characteristics</h4>
+                
+                <div class="spec-grid">
+                    <div class="spec-item">
+                        <div class="spec-label">Frequency</div>
+                        <div>1090.000 MHz</div>
+                        <small>International standard for Mode S / ADS-B</small>
+                    </div>
+                    <div class="spec-item">
+                        <div class="spec-label">Modulation</div>
+                        <div>PPM (Pulse Position Modulation)</div>
+                        <small>Binary encoding via pulse timing</small>
+                    </div>
+                    <div class="spec-item">
+                        <div class="spec-label">Data Rate</div>
+                        <div>1 Mbps</div>
+                        <small>1 microsecond per bit</small>
+                    </div>
+                    <div class="spec-item">
+                        <div class="spec-label">Message Length</div>
+                        <div>56 or 112 bits</div>
+                        <small>Short (56 μs) or Long (112 μs)</small>
+                    </div>
+                </div>
+                
+                <h4>Message Structure (112-bit Extended Squitter)</h4>
+                
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Bits</th>
+                            <th>Field</th>
+                            <th>Description</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr>
+                            <td>1-5</td>
+                            <td>Downlink Format (DF)</td>
+                            <td>DF 17 = ADS-B, DF 18 = TIS-B/ADS-R</td>
+                        </tr>
+                        <tr>
+                            <td>6-8</td>
+                            <td>Capability (CA)</td>
+                            <td>Aircraft capability codes</td>
+                        </tr>
+                        <tr>
+                            <td>9-32</td>
+                            <td>ICAO Address</td>
+                            <td>24-bit unique aircraft identifier (hex)</td>
+                        </tr>
+                        <tr>
+                            <td>33-88</td>
+                            <td>ME (Message, Extended)</td>
+                            <td>56-bit data payload (varies by type)</td>
+                        </tr>
+                        <tr>
+                            <td>89-112</td>
+                            <td>Parity/CRC</td>
+                            <td>24-bit error detection code</td>
+                        </tr>
+                    </tbody>
+                </table>
+                
+                <p><strong>Example Raw Message (Hex):</strong></p>
+                <pre><code>8D4840D6202CC371C32CE0576098
+
+Breaking down:
+8D       → DF=17 (binary 10001), CA=5 (binary 101)
+4840D6   → ICAO address: 0x4840D6 (British Airways aircraft)
+202CC371C32CE0 → ME field (position data)
+576098   → Parity/CRC checksum</code></pre>
+            </div>
+            
+            <h3>Stage 2: RTL-SDR IQ Sampling</h3>
+            
+            <div class="card">
+                <h4>What are IQ Samples?</h4>
+                
+                <p><strong>I</strong> (In-phase) and <strong>Q</strong> (Quadrature) represent the signal as a complex number:</p>
+                
+                <ul>
+                    <li><strong>I component:</strong> Cosine phase (real part)</li>
+                    <li><strong>Q component:</strong> Sine phase (imaginary part)</li>
+                    <li><strong>Together:</strong> Complete representation of amplitude and phase</li>
+                </ul>
+                
+                <p><strong>RTL-SDR Output Format:</strong></p>
+                
+                <pre><code>Raw bytes: [I₀, Q₀, I₁, Q₁, I₂, Q₂, ...]
+
+Values: 0-255 (unsigned 8-bit)
+Center: 127 (representing zero)
+Sample rate: 2,000,000 samples/sec
+Data rate: 4,000,000 bytes/sec (4 MB/s)</code></pre>
+                
+                <div class="info-box">
+                    <strong>Why IQ?</strong> IQ sampling preserves both amplitude and phase information, allowing software to demodulate any signal type without hardware changes.
+                </div>
+            </div>
+            
+            <h3>Stage 3: Demodulation (dump1090 / readsb)</h3>
+            
+            <div class="card">
+                <h4>PPM Demodulation Process</h4>
+                
+                <ol>
+                    <li><strong>Magnitude Calculation:</strong>
+                        <pre><code>Magnitude = √(I² + Q²)
+
+Converts IQ pairs to signal strength
+Removes phase information (not needed for PPM)</code></pre>
+                    </li>
+                    
+                    <li><strong>Preamble Detection:</strong>
+                        <pre><code>Preamble pattern (8 μs):
+█░█░░░░░█░░░░░░░  (High-Low-High-Low pattern)
+↑ Start of message
+
+Correlator searches for this pattern in magnitude stream
+When found, message decoding begins</code></pre>
+                    </li>
+                    
+                    <li><strong>Bit Slicing:</strong>
+                        <pre><code>PPM encoding:
+Bit 0: Pulse in first half of bit period
+Bit 1: Pulse in second half of bit period
+
+Each bit = 1 μs duration
+Decoder samples at 0.5 μs points to determine 0 or 1</code></pre>
+                    </li>
+                    
+                    <li><strong>CRC Validation:</strong>
+                        <pre><code>Generator polynomial: G(x) = x²⁴ + x²³ + x²² + ... (ICAO standard)
+
+Calculate CRC over bits 1-88
+Compare with bits 89-112
+If match → valid message
+If mismatch → attempt single-bit error correction</code></pre>
+                    </li>
+                </ol>
+            </div>
+            
+            <h3>Stage 4: Message Type Decoding</h3>
+            
+            <div class="card">
+                <h4>ADS-B Message Types (ME Field, Bits 33-37)</h4>
+                
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Type Code</th>
+                            <th>Category</th>
+                            <th>Data Content</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr>
+                            <td>1-4</td>
+                            <td>Aircraft Identification</td>
+                            <td>Callsign (8 characters, e.g., "UAL123  ")</td>
+                        </tr>
+                        <tr>
+                            <td>5-8</td>
+                            <td>Surface Position</td>
+                            <td>Lat/Lon (CPR encoded), ground speed, track</td>
+                        </tr>
+                        <tr>
+                            <td>9-18</td>
+                            <td>Airborne Position (Barometric)</td>
+                            <td>Lat/Lon (CPR), altitude from altimeter</td>
+                        </tr>
+                        <tr>
+                            <td>19</td>
+                            <td>Airborne Velocity</td>
+                            <td>Ground speed, heading, vertical rate</td>
+                        </tr>
+                        <tr>
+                            <td>20-22</td>
+                            <td>Airborne Position (GNSS)</td>
+                            <td>Lat/Lon (CPR), GNSS altitude</td>
+                        </tr>
+                        <tr>
+                            <td>28</td>
+                            <td>Aircraft Status</td>
+                            <td>Emergency codes, TCAS alerts</td>
+                        </tr>
+                        <tr>
+                            <td>31</td>
+                            <td>Operational Status</td>
+                            <td>Version numbers, capabilities</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+            
+            <div class="card">
+                <h4>CPR (Compact Position Reporting) Decoding</h4>
+                
+                <p><strong>Challenge:</strong> Encode global coordinates in just 17 bits for latitude, 17 bits for longitude.</p>
+                
+                <p><strong>Solution:</strong> CPR uses even/odd frame pairs with different zone divisions:</p>
+                
+                <ul>
+                    <li><strong>Even frame (F=0):</strong> Divides Earth into 60 latitude zones</li>
+                    <li><strong>Odd frame (F=1):</strong> Divides Earth into 59 latitude zones</li>
+                    <li><strong>Decoding:</strong> Requires BOTH frames to calculate exact lat/lon</li>
+                </ul>
+                
+                <p><strong>Decoding Process (Simplified):</strong></p>
+                
+                <pre><code>1. Receive even frame → Store CPR_LAT_EVEN, CPR_LON_EVEN
+2. Receive odd frame → Store CPR_LAT_ODD, CPR_LON_ODD
+3. Calculate latitude index:
+   j = floor(59 × CPR_LAT_EVEN - 60 × CPR_LAT_ODD + 0.5)
+4. Calculate latitude:
+   LAT_EVEN = DLat_EVEN × (mod(j, 60) + CPR_LAT_EVEN)
+5. Calculate longitude similarly with zone NL(LAT)
+6. Result: Precise lat/lon position
+
+Note: If >10 seconds between frames, position is ambiguous</code></pre>
+                
+                <div class="warning-box">
+                    <strong>Limitation:</strong> CPR requires two messages. First position for an aircraft appears only after receiving both even AND odd frames (typically 1-2 seconds).
+                </div>
+            </div>
+            
+            <h3>Stage 5: Data Aggregation & Tracking</h3>
+            
+            <div class="card">
+                <h4>Aircraft State Management</h4>
+                
+                <p>dump1090/readsb maintains a database of all tracked aircraft:</p>
+                
+                <ul>
+                    <li><strong>Aircraft table:</strong> Hash map indexed by ICAO address</li>
+                    <li><strong>Updates:</strong> Each message updates relevant fields</li>
+                    <li><strong>Timeouts:</strong> Aircraft removed after 60-300 seconds without messages</li>
+                    <li><strong>Message counter:</strong> Tracks total messages per aircraft (signal quality indicator)</li>
+                </ul>
+                
+                <p><strong>Typical Update Rates:</strong></p>
+                
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Message Type</th>
+                            <th>Transmission Rate</th>
+                            <th>Update Frequency</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr>
+                            <td>Aircraft ID (Callsign)</td>
+                            <td>Every 5 seconds</td>
+                            <td>Static, rarely changes</td>
+                        </tr>
+                        <tr>
+                            <td>Airborne Position</td>
+                            <td>0.5-2 seconds</td>
+                            <td>Smooth track updates</td>
+                        </tr>
+                        <tr>
+                            <td>Velocity</td>
+                            <td>0.5-2 seconds</td>
+                            <td>Speed, heading, vertical rate</td>
+                        </tr>
+                        <tr>
+                            <td>Status</td>
+                            <td>5 seconds</td>
+                            <td>Emergency, TCAS alerts</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+            
+            <h3>Understanding Output Data Formats</h3>
+            
+            <div class="card">
+                <h4>JSON Output (aircraft.json)</h4>
+                
+                <p><strong>Location:</strong> <code>http://localhost:8080/data/aircraft.json</code></p>
+                
+                <p><strong>Complete Example:</strong></p>
+                
+                <pre><code>{
+  "now": 1700659296.5,          // Unix timestamp
+  "messages": 12345678,         // Total messages processed
+  "aircraft": [
+    {
+      "hex": "a12345",           // ICAO 24-bit address (unique ID)
+      "type": "adsb_icao",       // Source type
+      "flight": "UAL123  ",      // Callsign (8 chars, space-padded)
+      
+      // Position
+      "alt_baro": 37000,         // Barometric altitude (feet)
+      "alt_geom": 37525,         // Geometric (GNSS) altitude (feet)
+      "lat": 37.7749,            // Latitude (degrees)
+      "lon": -122.4194,          // Longitude (degrees)
+      
+      // Velocity
+      "gs": 450.5,               // Ground speed (knots)
+      "tas": 465.3,              // True airspeed (knots)
+      "ias": 285.2,              // Indicated airspeed (knots)
+      "track": 285.3,            // Track angle (degrees, true north)
+      "track_rate": 0.12,        // Rate of turn (degrees/second)
+      "roll": -2.5,              // Roll angle (degrees)
+      "mag_heading": 283.1,      // Magnetic heading (degrees)
+      "true_heading": 285.3,     // True heading (degrees)
+      "baro_rate": -1024,        // Vertical rate (ft/min, negative = descending)
+      "geom_rate": -1050,        // Geometric vertical rate (ft/min)
+      
+      // Metadata
+      "squawk": "2542",          // Transponder code (4 digits)
+      "emergency": "none",       // Emergency status
+      "category": "A3",          // Aircraft category (A3 = large jet)
+      "nav_qnh": 1013.2,         // Altimeter setting (mb)
+      "nav_altitude_mcp": 36000, // Selected altitude (autopilot)
+      "nav_heading": 285.0,      // Selected heading (autopilot)
+      
+      // Signal Quality
+      "nic": 8,                  // Navigation Integrity Category
+      "rc": 186,                 // Radius of Containment (meters)
+      "nic_baro": 1,             // Barometric altitude integrity
+      "nac_p": 9,                // Position accuracy (0-11, higher is better)
+      "nac_v": 2,                // Velocity accuracy (0-7)
+      "sil": 3,                  // Source Integrity Level (0-3)
+      "sil_type": "perhour",     // SIL type
+      "gva": 2,                  // Geometric Vertical Accuracy
+      "sda": 2,                  // System Design Assurance
+      
+      // Reception
+      "seen": 0.3,               // Seconds since last message
+      "seen_pos": 1.2,           // Seconds since last position update
+      "rssi": -12.5,             // Signal strength (dBFS, closer to 0 is stronger)
+      "messages": 156,           // Total messages from this aircraft
+      "mlat": [],                // MLAT fields (if applicable)
+      "tisb": []                 // TIS-B fields (if applicable)
+    }
+  ]
+}</code></pre>
+                
+                <div class="info-box">
+                    <strong>Note:</strong> Not all fields are present for every aircraft. Fields appear only when the corresponding data has been received.
+                </div>
+            </div>
+            
+            <div class="card">
+                <h4>SBS-1 BaseStation Format (Port 30003)</h4>
+                
+                <p><strong>CSV format compatible with many applications:</strong></p>
+                
+                <pre><code>MSG,3,1,1,A12345,1,2023/11/22,12:34:56.789,2023/11/22,12:34:56.789,,37000,,,37.7749,-122.4194,,,0,0,0,0
+
+Field breakdown:
+MSG,              // Message type
+3,                // Transmission type (3 = ES Airborne Position)
+1,                // Session ID
+1,                // Aircraft ID
+A12345,           // ICAO hex
+1,                // Flight ID
+2023/11/22,       // Date message generated
+12:34:56.789,     // Time message generated
+2023/11/22,       // Date message logged
+12:34:56.789,     // Time message logged
+UAL123,           // Callsign
+37000,            // Altitude (feet)
+450,              // Ground speed (knots)
+285,              // Track (degrees)
+37.7749,          // Latitude
+-122.4194,        // Longitude
+-1024,            // Vertical rate (ft/min)
+2542,             // Squawk
+0,                // Alert flag
+0,                // Emergency flag
+0,                // SPI flag
+0                 // Ground flag</code></pre>
+            </div>
+            
+            <h2>📶 Antenna Setup & Optimization</h2>
+            
+            <div class="warning-box">
+                <h4>⚡ Most Critical Component</h4>
+                <p>Your antenna and its placement determine 80% of your system's performance. A perfect decoder with a poor antenna will underperform a basic decoder with an excellent antenna.</p>
+            </div>
+            
+            <h3>Antenna Placement Strategy</h3>
+            
+            <div class="card">
+                <h4>Line-of-Sight Limitations</h4>
+                
+                <p>1090 MHz signals are nearly line-of-sight. Earth's curvature limits range:</p>
+                
+                <p><strong>Radio Horizon Formula:</strong></p>
+                
+                <pre><code>d (km) = 3.57 × (√h_aircraft + √h_antenna)
+
+Where:
+h_aircraft = aircraft altitude (meters)
+h_antenna = antenna height above ground (meters)
+
+Examples:
+Aircraft at 10,000m (33,000 ft), antenna at 10m:
+d = 3.57 × (√10000 + √10) = 3.57 × (100 + 3.16) = 368 km
+
+Aircraft at 3,000m (10,000 ft), antenna at 2m:
+d = 3.57 × (√3000 + √2) = 3.57 × (54.77 + 1.41) = 201 km
+
+Aircraft at 1,000m (3,300 ft), antenna at 10m:
+d = 3.57 × (√1000 + √10) = 3.57 × (31.62 + 3.16) = 124 km</code></pre>
+                
+                <div class="info-box">
+                    <strong>Key Insight:</strong> Every meter of antenna height significantly increases range for low-flying aircraft. Moving from 2m to 10m height extends low-altitude coverage dramatically.
+                </div>
+            </div>
+            
+            <div class="card">
+                <h4>Optimal Antenna Mounting</h4>
+                
+                <p><strong>Priority checklist:</strong></p>
+                
+                <ol>
+                    <li><strong>Height above ground:</strong> Higher is always better
+                        <ul>
+                            <li>Roof mounting: Ideal (5-15m typical)</li>
+                            <li>Attic mounting: Acceptable if not metal roof (signal loss 3-6 dB)</li>
+                            <li>Window mounting: Last resort (significant blockage)</li>
+                        </ul>
+                    </li>
+                    
+                    <li><strong>Clear 360° view:</strong> Minimize obstructions
+                        <ul>
+                            <li>Trees: -3 to -10 dB loss per tree</li>
+                            <li>Buildings: Complete blockage in that direction</li>
+                            <li>Metal objects: Reflections cause multipath interference</li>
+                        </ul>
+                    </li>
+                    
+                    <li><strong>Away from RF noise sources:</strong>
+                        <ul>
+                            <li>Power lines: EMI interference (keep >5m away)</li>
+                            <li>Solar panel inverters: Broadband noise (keep >10m away)</li>
+                            <li>LED lights: Switching noise at harmonics</li>
+                            <li>Computers, monitors: Local interference</li>
+                        </ul>
+                    </li>
+                    
+                    <li><strong>Vertical polarization:</strong>
+                        <ul>
+                            <li>ADS-B transmits vertically polarized signals</li>
+                            <li>Antenna must be mounted perfectly vertical</li>
+                            <li>Even 15° tilt = 1-2 dB loss</li>
+                        </ul>
+                    </li>
+                </ol>
+            </div>
+            
+            <div class="card">
+                <h4>Mounting Solutions</h4>
+                
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Method</th>
+                            <th>Height Gain</th>
+                            <th>Difficulty</th>
+                            <th>Cost</th>
+                            <th>Notes</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr>
+                            <td><strong>Mast on Roof</strong></td>
+                            <td>Excellent</td>
+                            <td>High</td>
+                            <td>$50-200</td>
+                            <td>Best performance, requires secure mounting, grounding essential</td>
+                        </tr>
+                        <tr>
+                            <td><strong>Chimney Mount</strong></td>
+                            <td>Excellent</td>
+                            <td>Medium</td>
+                            <td>$30-80</td>
+                            <td>Uses existing chimney, check local codes</td>
+                        </tr>
+                        <tr>
+                            <td><strong>Attic Mount</strong></td>
+                            <td>Medium</td>
+                            <td>Low</td>
+                            <td>$10-30</td>
+                            <td>No weatherproofing needed, -3 to -6 dB signal loss, avoid if metal roof</td>
+                        </tr>
+                        <tr>
+                            <td><strong>Balcony Pole</strong></td>
+                            <td>Medium</td>
+                            <td>Low</td>
+                            <td>$20-50</td>
+                            <td>Good for apartments, partial sky view</td>
+                        </tr>
+                        <tr>
+                            <td><strong>Window Suction</strong></td>
+                            <td>Poor</td>
+                            <td>Very Low</td>
+                            <td>$5-15</td>
+                            <td>Testing only, ~180° coverage, building blockage</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+            
+            <div class="card">
+                <h4>Lightning Protection & Grounding</h4>
+                
+                <div class="warning-box">
+                    <strong>⚡ SAFETY WARNING:</strong> Outdoor antennas on roofs can attract lightning. Proper grounding is essential for safety and equipment protection.
+                </div>
+                
+                <p><strong>Grounding components:</strong></p>
+                
+                <ul>
+                    <li><strong>Ground rod:</strong> 2.4m (8 ft) copper rod driven into earth</li>
+                    <li><strong>Grounding wire:</strong> #10 AWG copper wire minimum</li>
+                    <li><strong>Coax grounding block:</strong> Install at entry point to building</li>
+                    <li><strong>Surge protector:</strong> Inline coax surge arrestor (1090 MHz rated)</li>
+                </ul>
+                
+                <p><strong>Installation:</strong></p>
+                
+                <ol>
+                    <li>Mount antenna with metal mast grounded to building ground</li>
+                    <li>Install coax grounding block where cable enters building</li>
+                    <li>Bond grounding block to electrical ground with #10 AWG wire</li>
+                    <li>Use shortest possible ground wire path (< 2m ideal)</li>
+                </ol>
+            </div>
+            
+            <h3>Expected Performance & Range</h3>
+            
+            <div class="card">
+                <h4>Typical Reception Ranges by Setup</h4>
+                
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Setup</th>
+                            <th>High Altitude (>30k ft)</th>
+                            <th>Medium Altitude (10-30k ft)</th>
+                            <th>Low Altitude (<10k ft)</th>
+                            <th>Aircraft Count</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr>
+                            <td><strong>Indoor Antenna, No LNA</strong></td>
+                            <td>150-200 km</td>
+                            <td>50-100 km</td>
+                            <td>10-30 km</td>
+                            <td>30-100</td>
+                        </tr>
+                        <tr>
+                            <td><strong>Roof Antenna, No LNA</strong></td>
+                            <td>250-300 km</td>
+                            <td>100-150 km</td>
+                            <td>30-60 km</td>
+                            <td>100-300</td>
+                        </tr>
+                        <tr>
+                            <td><strong>Roof Antenna + Filter</strong></td>
+                            <td>300-350 km</td>
+                            <td>150-200 km</td>
+                            <td>40-80 km</td>
+                            <td>150-400</td>
+                        </tr>
+                        <tr>
+                            <td><strong>Roof Antenna + LNA + Filter</strong></td>
+                            <td>350-400 km</td>
+                            <td>200-250 km</td>
+                            <td>60-100 km</td>
+                            <td>200-600</td>
+                        </tr>
+                        <tr>
+                            <td><strong>Professional (High Gain, LNA)</strong></td>
+                            <td>400-450 km</td>
+                            <td>250-300 km</td>
+                            <td>80-120 km</td>
+                            <td>300-1000+</td>
+                        </tr>
+                    </tbody>
+                </table>
+                
+                <p><small>*Ranges assume clear line-of-sight, moderate RF environment. Urban areas with high interference will see reduced performance.</small></p>
+            </div>
+            
+            <div class="card">
+                <h4>Performance Benchmarks</h4>
+                
+                <p><strong>Good system indicators:</strong></p>
+                
+                <ul>
+                    <li><strong>Message rate:</strong> 500-3000 messages/sec (depends on location)</li>
+                    <li><strong>Aircraft count:</strong> 50-500 simultaneous (urban vs rural)</li>
+                    <li><strong>Position rate:</strong> >90% of aircraft have valid positions</li>
+                    <li><strong>Max range:</strong> 250+ km for cruise altitude aircraft</li>
+                    <li><strong>Signal strength:</strong> RSSI > -25 dBFS for nearby aircraft</li>
+                </ul>
+                
+                <p><strong>Signs of problems:</strong></p>
+                
+                <ul>
+                    <li>Message count but no positions (CPR decoding issue, timing problem)</li>
+                    <li>Low aircraft count vs neighbors (check antenna, cable, gain)</li>
+                    <li>Many "strong signal" warnings (reduce gain, add filter)</li>
+                    <li>Positions jumping around (multipath, interference)</li>
+                    <li>Range < 150 km for high aircraft (antenna issue)</li>
+                </ul>
+            </div>
+            
+            <h3>Troubleshooting Guide</h3>
+            
+            <div class="card">
+                <h4>Common Issues & Solutions</h4>
+                
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Problem</th>
+                            <th>Possible Cause</th>
+                            <th>Solution</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr>
+                            <td><strong>No signals detected</strong></td>
+                            <td>Driver issue, wrong frequency, bad antenna connection</td>
+                            <td>Verify driver with <code>rtl_test</code>, check SMA connection, verify 1090 MHz frequency</td>
+                        </tr>
+                        <tr>
+                            <td><strong>Messages but no positions</strong></td>
+                            <td>PPM error, system time incorrect</td>
+                            <td>Calibrate PPM correction, sync system clock (NTP)</td>
+                        </tr>
+                        <tr>
+                            <td><strong>Very short range (<100 km)</strong></td>
+                            <td>Poor antenna, excessive cable loss, low gain</td>
+                            <td>Improve antenna height/quality, shorten cable, increase gain to 40-49.6 dB</td>
+                        </tr>
+                        <tr>
+                            <td><strong>"Strong signal" warnings</strong></td>
+                            <td>Gain too high, nearby interference</td>
+                            <td>Reduce gain to 30-40 dB, add SAW filter</td>
+                        </tr>
+                        <tr>
+                            <td><strong>Positions jumping/jittering</strong></td>
+                            <td>Multipath (signal reflections)</td>
+                            <td>Relocate antenna away from metal surfaces, increase height</td>
+                        </tr>
+                        <tr>
+                            <td><strong>Low message rate</strong></td>
+                            <td>USB dropouts, CPU overload</td>
+                            <td>Use powered USB hub, reduce other processes, upgrade CPU</td>
+                        </tr>
+                        <tr>
+                            <td><strong>Web interface not loading</strong></td>
+                            <td>Port conflict, firewall</td>
+                            <td>Check port 8080 available, disable firewall for testing</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+            
+            <div class="card">
+                <h4>Diagnostic Commands</h4>
+                
+                <pre><code># Test RTL-SDR device
+rtl_test -t
+
+# Check for sample drops
+rtl_test -s 2.4e6
+
+# Scan for signals around 1090 MHz
+rtl_power -f 1088M:1092M:1k -g 50 -i 1 power.csv
+
+# Monitor dump1090 statistics
+# Look for: aircraft count, message rate, strong signals, bad CRC
+dump1090 --interactive --stats-every 60
+
+# Check USB buffer health (Linux)
+dmesg | grep -i usb
+
+# Monitor CPU usage
+top -p $(pgrep dump1090)</code></pre>
+            </div>
+            
+            <div class="card">
+                <h4>Gain Optimization Procedure</h4>
+                
+                <ol>
+                    <li><strong>Start with automatic gain:</strong> <code>--gain -10</code></li>
+                    <li><strong>Run for 10 minutes</strong>, note aircraft count and message rate</li>
+                    <li><strong>Try manual gain at 49.6 dB:</strong> <code>--gain 49.6</code></li>
+                    <li><strong>Look for "strong signal" warnings</strong> in output:
+                        <ul>
+                            <li>None → Keep 49.6 dB</li>
+                            <li>Occasional → Try 42-45 dB</li>
+                            <li>Frequent → Try 35-40 dB</li>
+                            <li>Constant → Try 25-30 dB or add filter</li>
+                        </ul>
+                    </li>
+                    <li><strong>Compare aircraft counts</strong> at different gains, use the one with maximum count</li>
+                    <li><strong>Fine-tune in 2-3 dB steps</strong> for optimal performance</li>
+                </ol>
+                
+                <div class="info-box">
+                    <strong>Pro Tip:</strong> Optimal gain varies by location and time of day. Some users run scripts to adjust gain automatically based on RF conditions.
+                </div>
+            </div>
+            
+            <h2>🌐 Data Visualization & Sharing</h2>
+            
+            <h3>Web Interface Options</h3>
+            
+            <div class="card">
+                <h4>1. dump1090 Built-in Map (Basic)</h4>
+                
+                <p><strong>Access:</strong> <code>http://localhost:8080</code></p>
+                
+                <p><strong>Features:</strong></p>
+                <ul>
+                    <li>Real-time aircraft positions on OpenStreetMap</li>
+                    <li>Aircraft table with callsign, altitude, speed</li>
+                    <li>Click aircraft for details</li>
+                    <li>Range rings showing coverage</li>
+                    <li>Auto-refresh every second</li>
+                </ul>
+                
+                <p><strong>Limitations:</strong></p>
+                <ul>
+                    <li>Basic styling</li>
+                    <li>No historical tracking</li>
+                    <li>Limited customization</li>
+                </ul>
+            </div>
+            
+            <div class="card">
+                <h4>2. tar1090 (Enhanced Map - Recommended)</h4>
+                
+                <p><strong>Installation (Linux):</strong></p>
+                
+                <pre><code>sudo bash -c "$(wget -O - https://github.com/wiedehopf/tar1090/raw/master/install.sh)"</code></pre>
+                
+                <p><strong>Access:</strong> <code>http://localhost/tar1090</code></p>
+                
+                <p><strong>Features:</strong></p>
+                <ul>
+                    <li>✈️ Historical track playback (24+ hours)</li>
+                    <li>📊 Detailed statistics and graphs</li>
+                    <li>🎨 Multiple map layers (satellite, terrain, charts)</li>
+                    <li>🔍 Advanced filtering (altitude, speed, type)</li>
+                    <li>📸 Aircraft photos from database</li>
+                    <li>🌡️ Heatmaps showing coverage</li>
+                    <li>📱 Mobile-optimized interface</li>
+                    <li>🎯 Multi-receiver support</li>
+                </ul>
+                
+                <div class="success-box">
+                    <strong>Best Choice:</strong> tar1090 is the most feature-rich and actively maintained web interface for ADS-B.
+                </div>
+            </div>
+            
+            <div class="card">
+                <h4>3. Virtual Radar Server (Windows)</h4>
+                
+                <p><strong>Download:</strong> <code>https://www.virtualradarserver.co.uk/</code></p>
+                
+                <p><strong>Features:</strong></p>
+                <ul>
+                    <li>Professional-grade interface</li>
+                    <li>Aircraft database with photos, operator info</li>
+                    <li>Route information</li>
+                    <li>Reports and statistics</li>
+                    <li>Audio alerts for specific aircraft</li>
+                    <li>Silhouettes by aircraft type</li>
+                </ul>
+                
+                <p><strong>Configuration:</strong></p>
+                <ol>
+                    <li>Install VRS</li>
+                    <li>Configure receiver: <code>localhost:30003</code> (BaseStation format)</li>
+                    <li>Download StandingData.sqb aircraft database</li>
+                    <li>Access at <code>http://localhost:8080/VirtualRadar</code></li>
+                </ol>
+            </div>
+            
+            <h3>Data Sharing & Aggregation Networks</h3>
+            
+            <div class="info-box">
+                <h4>Why Share Your Data?</h4>
+                <p>Contributing to aggregation networks helps build global aircraft tracking coverage. In return, you typically receive premium access to their platforms.</p>
+            </div>
+            
+            <div class="card">
+                <h4>FlightAware (PiAware)</h4>
+                
+                <p><strong>Benefits:</strong></p>
+                <ul>
+                    <li>Free Enterprise account ($90/month value)</li>
+                    <li>No ads on FlightAware.com</li>
+                    <li>Extended history access</li>
+                    <li>Worldwide flight tracking</li>
+                </ul>
+                
+                <p><strong>Installation (Raspberry Pi):</strong></p>
+                
+                <pre><code># Install PiAware package
+wget https://flightaware.com/adsb/piaware/files/packages/pool/piaware/p/piaware-support/piaware-repository_7.2_all.deb
+sudo dpkg -i piaware-repository_7.2_all.deb
+sudo apt update
+sudo apt install -y piaware
+
+# Configure
+sudo piaware-config flightaware-user YOUR_USERNAME
+sudo piaware-config flightaware-password YOUR_PASSWORD
+
+# Restart
+sudo systemctl restart piaware
+
+# Check status
+sudo piaware-status</code></pre>
+                
+                <p><strong>Claim your receiver:</strong> Visit <code>https://flightaware.com/adsb/stats/user/YOUR_USERNAME</code></p>
+            </div>
+            
+            <div class="card">
+                <h4>FlightRadar24 (FR24Feed)</h4>
+                
+                <p><strong>Benefits:</strong></p>
+                <ul>
+                    <li>Free Business account ($500/year value)</li>
+                    <li>Premium features on FR24 app and website</li>
+                    <li>Historical data access</li>
+                    <li>Ad-free experience</li>
+                </ul>
+                
+                <p><strong>Installation (Linux):</strong></p>
+                
+                <pre><code># Download and install
+sudo bash -c "$(wget -O - https://repo-feed.flightradar24.com/install_fr24_rpi.sh)"
+
+# Run configuration wizard
+sudo fr24feed --signup
+
+# Follow prompts:
+# - Email (for FR24 account)
+# - Receiver location (lat/lon)
+# - Data source: localhost:30005 (Beast binary)
+# - Sharing: Yes
+
+# Restart service
+sudo systemctl restart fr24feed
+
+# Check status - note the sharing key
+sudo systemctl status fr24feed</code></pre>
+                
+                <p><strong>Activate:</strong> Use the sharing key to link at <code>https://www.flightradar24.com/premium</code></p>
+            </div>
+            
+            <div class="card">
+                <h4>Other Networks</h4>
+                
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Network</th>
+                            <th>Benefits</th>
+                            <th>Installation</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr>
+                            <td><strong>ADSBHub</strong></td>
+                            <td>Free, open data sharing, no account required</td>
+                            <td><code>sudo apt install adsbhub-client</code></td>
+                        </tr>
+                        <tr>
+                            <td><strong>OpenSky Network</strong></td>
+                            <td>Academic research network, API access</td>
+                            <td>Configure feeder at opensky-network.org</td>
+                        </tr>
+                        <tr>
+                            <td><strong>ADS-B Exchange</strong></td>
+                            <td>Unfiltered data, no blocking, API access</td>
+                            <td>Install via: <code>adsbexchange.com/how-to-feed</code></td>
+                        </tr>
+                        <tr>
+                            <td><strong>RadarBox</strong></td>
+                            <td>Free Business account, hardware discounts</td>
+                            <td>Install rbfeeder package</td>
+                        </tr>
+                    </tbody>
+                </table>
+                
+                <div class="info-box">
+                    <strong>Pro Tip:</strong> You can feed multiple networks simultaneously! Each runs independently and doesn't interfere with others.
+                </div>
+            </div>
+            
+            <h3>Advanced Applications</h3>
+            
+            <div class="card">
+                <h4>Building Custom Applications with JSON Data</h4>
+                
+                <p><strong>Example: Python script to monitor aircraft</strong></p>
+                
+                <pre><code>import requests
+import time
+
+def get_aircraft():
+    """Fetch current aircraft from dump1090"""
+    try:
+        response = requests.get('http://localhost:8080/data/aircraft.json')
+        return response.json()
+    except Exception as e:
+        print(f"Error: {e}")
+        return None
+
+def filter_low_aircraft(aircraft_list, max_altitude=5000):
+    """Find aircraft below specified altitude"""
+    low_aircraft = []
+    for ac in aircraft_list:
+        if 'alt_baro' in ac and ac['alt_baro'] < max_altitude:
+            low_aircraft.append(ac)
+    return low_aircraft
+
+# Main loop
+while True:
+    data = get_aircraft()
+    if data and 'aircraft' in data:
+        print(f"\n=== {data['now']} ===")
+        print(f"Total aircraft: {len(data['aircraft'])}")
+        
+        # Find low-flying aircraft
+        low = filter_low_aircraft(data['aircraft'], 5000)
+        if low:
+            print(f"\nLow aircraft (<5000 ft):")
+            for ac in low:
+                callsign = ac.get('flight', 'N/A').strip()
+                alt = ac.get('alt_baro', 'N/A')
+                print(f"  {callsign}: {alt} ft")
+    
+    time.sleep(10)  # Update every 10 seconds</code></pre>
+            </div>
+            
+            <div class="card">
+                <h4>MLAT (Multilateration) - Advanced Feature</h4>
+                
+                <p><strong>What is MLAT?</strong> Technique to locate aircraft without GPS-based ADS-B by using time-difference-of-arrival from multiple receivers.</p>
+                
+                <p><strong>Requirements:</strong></p>
+                <ul>
+                    <li>Accurate timing (GPS clock or NTP sync)</li>
+                    <li>Multiple receivers (3+ for 2D, 4+ for 3D position)</li>
+                    <li>Known receiver positions (precise lat/lon)</li>
+                    <li>Network coordination server</li>
+                </ul>
+                
+                <p><strong>Setup with FlightAware:</strong></p>
+                <ul>
+                    <li>PiAware automatically participates in MLAT if enabled</li>
+                    <li>Requires precise receiver location in configuration</li>
+                    <li>Results appear as purple aircraft on map</li>
+                </ul>
+                
+                <p><strong>Benefits:</strong></p>
+                <ul>
+                    <li>Track aircraft without ADS-B transmitters</li>
+                    <li>Older aircraft with Mode S only</li>
+                    <li>Military aircraft (when transponder active)</li>
+                </ul>
+            </div>
+            
+            <h2>🔧 Building Your Own ADS-B Decoder (Like dump1090)</h2>
+            
+            <div class="info-box">
+                <h4>Learning by Building</h4>
+                <p>Creating your own ADS-B decoder is an excellent way to understand the complete signal processing pipeline. This section provides a roadmap for building a decoder from scratch.</p>
+            </div>
+            
+            <h3>Architecture Overview</h3>
+            
+            <div class="card">
+                <h4>Core Components of an ADS-B Decoder</h4>
+                
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Component</th>
+                            <th>Responsibility</th>
+                            <th>Complexity</th>
+                            <th>Key Algorithms</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr>
+                            <td><strong>SDR Interface</strong></td>
+                            <td>Communicate with RTL-SDR hardware, receive IQ samples</td>
+                            <td>Low</td>
+                            <td>USB communication, buffer management</td>
+                        </tr>
+                        <tr>
+                            <td><strong>Signal Processing</strong></td>
+                            <td>Convert IQ to magnitude, detect signal presence</td>
+                            <td>Medium</td>
+                            <td>Magnitude calculation, noise floor estimation</td>
+                        </tr>
+                        <tr>
+                            <td><strong>Preamble Detection</strong></td>
+                            <td>Find Mode S message start pattern</td>
+                            <td>Medium</td>
+                            <td>Pattern matching, correlation</td>
+                        </tr>
+                        <tr>
+                            <td><strong>Demodulation</strong></td>
+                            <td>Convert PPM pulses to bits</td>
+                            <td>Medium</td>
+                            <td>Threshold detection, bit slicing</td>
+                        </tr>
+                        <tr>
+                            <td><strong>Error Detection</strong></td>
+                            <td>Validate message integrity using CRC</td>
+                            <td>Medium</td>
+                            <td>Polynomial division, error correction</td>
+                        </tr>
+                        <tr>
+                            <td><strong>Message Decoding</strong></td>
+                            <td>Parse and interpret ADS-B messages</td>
+                            <td>High</td>
+                            <td>Bit field extraction, CPR decoding</td>
+                        </tr>
+                        <tr>
+                            <td><strong>Aircraft Tracking</strong></td>
+                            <td>Maintain state for each aircraft</td>
+                            <td>Medium</td>
+                            <td>Hash tables, state machines</td>
+                        </tr>
+                        <tr>
+                            <td><strong>Output Interface</strong></td>
+                            <td>Serve data via HTTP, network protocols</td>
+                            <td>Medium</td>
+                            <td>Web server, JSON formatting, socket programming</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+            
+            <h3>Technology Stack Options</h3>
+            
+            <div class="card">
+                <h4>Language & Library Choices</h4>
+                
+                <p><strong>Option 1: Python (Easiest to Learn)</strong></p>
+                
+                <div class="spec-grid">
+                    <div class="spec-item">
+                        <div class="spec-label">Pros</div>
+                        <div>Fast development, rich libraries, easy debugging</div>
+                    </div>
+                    <div class="spec-item">
+                        <div class="spec-label">Cons</div>
+                        <div>Slower performance, may drop samples under load</div>
+                    </div>
+                </div>
+                
+                <p><strong>Key libraries:</strong></p>
+                <ul>
+                    <li><strong>pyrtlsdr</strong> - RTL-SDR interface</li>
+                    <li><strong>numpy</strong> - Fast array operations for signal processing</li>
+                    <li><strong>pyModeS</strong> - Reference for message decoding (can study source)</li>
+                    <li><strong>flask/fastapi</strong> - Web server for output</li>
+                </ul>
+                
+                <p><strong>Option 2: C/C++ (Production Performance)</strong></p>
+                
+                <div class="spec-grid">
+                    <div class="spec-item">
+                        <div class="spec-label">Pros</div>
+                        <div>Maximum performance, minimal overhead, real-time capable</div>
+                    </div>
+                    <div class="spec-item">
+                        <div class="spec-label">Cons</div>
+                        <div>Harder to debug, manual memory management, longer development</div>
+                    </div>
+                </div>
+                
+                <p><strong>Key libraries:</strong></p>
+                <ul>
+                    <li><strong>librtlsdr</strong> - RTL-SDR interface (C library)</li>
+                    <li><strong>pthreads</strong> - Threading for async I/O</li>
+                    <li><strong>mongoose/libmicrohttpd</strong> - Embedded web server</li>
+                </ul>
+                
+                <p><strong>Option 3: Rust (Modern Systems Programming)</strong></p>
+                
+                <div class="spec-grid">
+                    <div class="spec-item">
+                        <div class="spec-label">Pros</div>
+                        <div>Memory safety, modern tooling, C-like performance</div>
+                    </div>
+                    <div class="spec-item">
+                        <div class="spec-label">Cons</div>
+                        <div>Steeper learning curve, fewer SDR examples</div>
+                    </div>
+                </div>
+                
+                <p><strong>Key crates:</strong></p>
+                <ul>
+                    <li><strong>rtlsdr</strong> - RTL-SDR bindings</li>
+                    <li><strong>soapysdr</strong> - Generic SDR abstraction</li>
+                    <li><strong>actix-web/warp</strong> - Async web framework</li>
+                </ul>
+            </div>
+            
+            <h3>Step-by-Step Implementation Guide</h3>
+            
+            <div class="card">
+                <h4><span class="step-number">1</span>RTL-SDR Interface & IQ Sample Acquisition</h4>
+                
+                <p><strong>Goal:</strong> Get raw IQ samples from RTL-SDR</p>
+                
+                <p><strong>Python Example:</strong></p>
+                
+                <pre><code>from rtlsdr import RtlSdr
+import numpy as np
+
+# Initialize SDR
+sdr = RtlSdr()
+sdr.sample_rate = 2e6        # 2 MS/s
+sdr.center_freq = 1090e6     # 1090 MHz
+sdr.gain = 49.6              # Manual gain
+
+# Callback for async samples
+def callback(samples, context):
+    """
+    samples: complex64 numpy array of IQ samples
+    Each sample = I + jQ where I, Q are floats [-1, 1]
+    """
+    print(f"Received {len(samples)} IQ samples")
+    # Process samples here
+    
+# Read samples asynchronously
+sdr.read_samples_async(callback, num_samples=256*1024)
+
+# Or synchronous read
+samples = sdr.read_samples(256*1024)
+print(f"Shape: {samples.shape}, dtype: {samples.dtype}")
+
+# Clean up
+sdr.close()</code></pre>
+                
+                <p><strong>C Example:</strong></p>
+                
+                <pre><code>#include &lt;rtl-sdr.h&gt;
+#include &lt;stdio.h&gt;
+
+#define SAMPLE_RATE 2000000
+#define CENTER_FREQ 1090000000
+#define BUF_SIZE (256 * 1024)
+
+// Callback function
+void rtlsdr_callback(uint8_t *buf, uint32_t len, void *ctx) {
+    // buf contains interleaved I/Q bytes: [I0, Q0, I1, Q1, ...]
+    // Values are 0-255, centered at 127
+    printf("Received %u bytes\n", len);
+    
+    // Process samples
+    for (uint32_t i = 0; i < len; i += 2) {
+        uint8_t I = buf[i];
+        uint8_t Q = buf[i + 1];
+        
+        // Convert to signed values centered at 0
+        int16_t I_signed = (int16_t)I - 127;
+        int16_t Q_signed = (int16_t)Q - 127;
+        
+        // Calculate magnitude: sqrt(I^2 + Q^2)
+        uint16_t magnitude = (uint16_t)sqrt(I_signed*I_signed + Q_signed*Q_signed);
+    }
+}
+
+int main() {
+    rtlsdr_dev_t *dev = NULL;
+    
+    // Open device
+    rtlsdr_open(&dev, 0);  // Device index 0
+    
+    // Configure
+    rtlsdr_set_sample_rate(dev, SAMPLE_RATE);
+    rtlsdr_set_center_freq(dev, CENTER_FREQ);
+    rtlsdr_set_tuner_gain_mode(dev, 1);  // Manual gain
+    rtlsdr_set_tuner_gain(dev, 496);     // Gain in 0.1 dB (49.6 dB)
+    
+    // Reset buffer
+    rtlsdr_reset_buffer(dev);
+    
+    // Start async reading
+    rtlsdr_read_async(dev, rtlsdr_callback, NULL, 0, BUF_SIZE);
+    
+    // Clean up
+    rtlsdr_close(dev);
+    return 0;
+}</code></pre>
+                
+                <div class="warning-box">
+                    <strong>Critical:</strong> Process samples quickly! At 2 MS/s, you receive 4 MB/s. If processing is too slow, samples will be dropped.
+                </div>
+            </div>
+            
+            <div class="card">
+                <h4><span class="step-number">2</span>Magnitude Calculation & Signal Detection</h4>
+                
+                <p><strong>Goal:</strong> Convert complex IQ to real magnitude values</p>
+                
+                <p><strong>Python Implementation:</strong></p>
+                
+                <pre><code>import numpy as np
+
+def process_iq_samples(iq_samples):
+    """
+    Convert IQ samples to magnitude
+    
+    Args:
+        iq_samples: numpy array of complex64 values
+        
+    Returns:
+        magnitude array (uint16)
+    """
+    # Method 1: Exact magnitude (slower but accurate)
+    magnitude = np.abs(iq_samples)
+    
+    # Method 2: Fast approximation (faster)
+    # mag ≈ max(|I|, |Q|) + 0.4 * min(|I|, |Q|)
+    I = np.abs(iq_samples.real)
+    Q = np.abs(iq_samples.imag)
+    magnitude = np.maximum(I, Q) + 0.4 * np.minimum(I, Q)
+    
+    # Scale to uint16 for further processing
+    magnitude = (magnitude * 65535).astype(np.uint16)
+    
+    return magnitude
+
+# Adaptive threshold based on noise floor
+def compute_noise_floor(magnitude, percentile=40):
+    """Estimate noise floor dynamically"""
+    return np.percentile(magnitude, percentile)
+
+def detect_signals(magnitude, threshold_multiplier=2.5):
+    """Find samples above noise threshold"""
+    noise_floor = compute_noise_floor(magnitude)
+    threshold = noise_floor * threshold_multiplier
+    
+    # Find indices where signal exceeds threshold
+    signal_indices = np.where(magnitude > threshold)[0]
+    
+    return signal_indices, threshold</code></pre>
+                
+                <p><strong>C Implementation (Fast Table Lookup):</strong></p>
+                
+                <pre><code>// Pre-computed magnitude lookup table
+uint16_t magnitude_lut[256][256];
+
+void init_magnitude_table() {
+    for (int i = 0; i < 256; i++) {
+        for (int q = 0; q < 256; q++) {
+            int I = i - 127;
+            int Q = q - 127;
+            magnitude_lut[i][q] = (uint16_t)sqrt(I*I + Q*Q);
+        }
+    }
+}
+
+// Fast magnitude conversion
+void iq_to_magnitude(uint8_t *iq_buf, uint16_t *mag_buf, uint32_t len) {
+    for (uint32_t i = 0; i < len; i += 2) {
+        uint8_t I = iq_buf[i];
+        uint8_t Q = iq_buf[i + 1];
+        mag_buf[i/2] = magnitude_lut[I][Q];
+    }
+}</code></pre>
+            </div>
+            
+            <div class="card">
+                <h4><span class="step-number">3</span>Preamble Detection</h4>
+                
+                <p><strong>Goal:</strong> Find the Mode S preamble pattern to locate message starts</p>
+                
+                <p><strong>Preamble Pattern (8 microseconds):</strong></p>
+                
+                <pre><code>High-Low-High-Low pattern at 1 MHz bit rate:
+Sample: 0    1    2    3    4    5    6    7    8    9    10   11   12   13   14   15
+Value:  HIGH HIGH LOW  LOW  HIGH HIGH LOW  LOW  LOW  LOW  LOW  LOW  HIGH HIGH LOW  LOW
+        └─1μs─┘ └─1μs─┘ └─1μs─┘ └─1μs─┘ └─────────────────┘ └─1μs─┘ └─1μs─┘
+
+At 2 MS/s sample rate: 2 samples per microsecond
+Samples: [H H L L H H L L L L L L H H L L]
+Indices:  0 1 2 3 4 5 6 7 8 9 101112131415</code></pre>
+                
+                <p><strong>Python Preamble Detector:</strong></p>
+                
+                <pre><code>def detect_preamble(magnitude, sample_rate=2e6):
+    """
+    Detect Mode S preamble in magnitude data
+    
+    Returns list of message start indices
+    """
+    samples_per_us = int(sample_rate / 1e6)  # 2 samples/μs at 2 MS/s
+    
+    preamble_positions = []
+    
+    # Scan through magnitude array
+    for i in range(len(magnitude) - 16 * samples_per_us):
+        # Check preamble pattern
+        # Expect: high at 0, low at 2, high at 4, low at 6, low at 8-12, high at 14
+        
+        m = magnitude[i:i + 16 * samples_per_us]
+        
+        # Get average values at key positions
+        pulse1 = np.mean(m[0:2])   # First high
+        gap1   = np.mean(m[2:4])   # First low
+        pulse2 = np.mean(m[4:6])   # Second high
+        gap2   = np.mean(m[6:8])   # Second low
+        gap3   = np.mean(m[8:14])  # Long low
+        pulse3 = np.mean(m[14:16]) # Third high
+        
+        # Check if pattern matches
+        # Pulses should be high, gaps should be low
+        avg = (pulse1 + pulse2 + pulse3) / 3
+        
+        if (pulse1 > gap1 * 1.4 and 
+            pulse2 > gap2 * 1.4 and 
+            pulse3 > gap3 * 1.4 and
+            pulse1 > avg * 0.8 and
+            pulse2 > avg * 0.8 and
+            pulse3 > avg * 0.8):
+            
+            preamble_positions.append(i + 16 * samples_per_us)
+            # Skip ahead to avoid detecting same preamble multiple times
+            i += 120 * samples_per_us  # Skip past minimum message length
+    
+    return preamble_positions</code></pre>
+                
+                <p><strong>Optimized C Version:</strong></p>
+                
+                <pre><code>#define PREAMBLE_US 8
+#define SAMPLES_PER_US 2
+
+int detect_preamble(uint16_t *mag, uint32_t len, uint32_t *positions) {
+    int count = 0;
+    
+    for (uint32_t i = 0; i < len - 16*SAMPLES_PER_US; i++) {
+        // Quick check: compare key sample pairs
+        uint16_t p1 = mag[i];           // First pulse
+        uint16_t g1 = mag[i + 2];       // First gap
+        uint16_t p2 = mag[i + 4];       // Second pulse
+        uint16_t g2 = mag[i + 6];       // Second gap
+        uint16_t g3 = mag[i + 10];      // Mid-gap
+        uint16_t p3 = mag[i + 14];      // Third pulse
+        
+        // Check pulse > gap pattern
+        if (p1 > g1 && p2 > g2 && p3 > g3 &&
+            p1 > g1 * 1.4 && p2 > g2 * 1.4) {
+            
+            positions[count++] = i + 16*SAMPLES_PER_US;
+            i += 120 * SAMPLES_PER_US;  // Skip to avoid duplicates
+        }
+    }
+    
+    return count;
+}</code></pre>
+            </div>
+            
+            <div class="card">
+                <h4><span class="step-number">4</span>PPM Demodulation (Bit Slicing)</h4>
+                
+                <p><strong>Goal:</strong> Convert PPM pulses to binary data</p>
+                
+                <p><strong>PPM Encoding:</strong></p>
+                
+                <pre><code>Each bit is 1 microsecond (2 samples at 2 MS/s)
+Bit 0: Pulse in first half  (samples 0-1 high, 2-3 low)
+Bit 1: Pulse in second half (samples 0-1 low, 2-3 high)
+
+Example:
+Bit value: 1 0 1 1 0
+Samples:   LLHH|HHLL|LLHH|LLHH|HHLL</code></pre>
+                
+                <p><strong>Python Demodulator:</strong></p>
+                
+                <pre><code>def demodulate_message(magnitude, start_idx, num_bits=112):
+    """
+    Demodulate PPM bits starting at start_idx
+    
+    Returns:
+        bits: numpy array of bits (0 or 1)
+        valid: boolean indicating if message looks valid
+    """
+    samples_per_bit = 2  # At 2 MS/s
+    bits = np.zeros(num_bits, dtype=np.uint8)
+    
+    for bit_idx in range(num_bits):
+        # Get samples for this bit
+        offset = start_idx + bit_idx * samples_per_bit
+        
+        if offset + samples_per_bit >= len(magnitude):
+            return bits, False
+        
+        # Sample at 0.25 and 0.75 of bit period
+        first_half = magnitude[offset]
+        second_half = magnitude[offset + 1]
+        
+        # Compare which half has stronger signal
+        if first_half > second_half:
+            bits[bit_idx] = 0  # Pulse in first half = bit 0
+        else:
+            bits[bit_idx] = 1  # Pulse in second half = bit 1
+    
+    return bits, True
+
+def bits_to_bytes(bits):
+    """Convert bit array to byte array"""
+    num_bytes = len(bits) // 8
+    bytes_array = np.zeros(num_bytes, dtype=np.uint8)
+    
+    for i in range(num_bytes):
+        byte_bits = bits[i*8:(i+1)*8]
+        bytes_array[i] = int(''.join(map(str, byte_bits)), 2)
+    
+    return bytes_array</code></pre>
+            </div>
+            
+            <div class="card">
+                <h4><span class="step-number">5</span>CRC Validation & Error Correction</h4>
+                
+                <p><strong>Goal:</strong> Verify message integrity using 24-bit CRC</p>
+                
+                <p><strong>CRC Polynomial:</strong> G(x) = x²⁴ + x²³ + x²² + x²¹ + ... (ICAO standard)</p>
+                
+                <p><strong>Python CRC Implementation:</strong></p>
+                
+                <pre><code>import numpy as np
+
+# Mode S CRC polynomial
+MODES_GENERATOR = 0xFFFA0480
+
+def modes_crc(msg_bytes):
+    """
+    Calculate Mode S CRC-24
+    
+    Args:
+        msg_bytes: numpy array of message bytes
+        
+    Returns:
+        24-bit CRC value
+    """
+    # Convert bytes to bits
+    crc = 0
+    
+    for byte in msg_bytes[:-3]:  # All except last 3 bytes (which contain CRC)
+        crc ^= (byte << 16)
+        
+        for _ in range(8):
+            if crc & 0x800000:  # If bit 23 is set
+                crc = (crc << 1) ^ MODES_GENERATOR
+            else:
+                crc = crc << 1
+            
+            crc &= 0xFFFFFF  # Keep only 24 bits
+    
+    return crc
+
+def check_crc(msg_bytes):
+    """
+    Validate message CRC
+    
+    Returns:
+        True if CRC is valid
+    """
+    # Extract received CRC (last 3 bytes)
+    received_crc = (msg_bytes[-3] << 16) | (msg_bytes[-2] << 8) | msg_bytes[-1]
+    
+    # Calculate CRC
+    calculated_crc = modes_crc(msg_bytes)
+    
+    # XOR should be 0 for valid message
+    return (calculated_crc ^ received_crc) == 0
+
+def fix_single_bit_error(msg_bytes):
+    """
+    Attempt to correct single-bit errors
+    
+    Returns:
+        corrected_msg_bytes if fixable, None otherwise
+    """
+    # Try flipping each bit
+    for byte_idx in range(len(msg_bytes)):
+        for bit_idx in range(8):
+            # Create copy and flip bit
+            test_msg = msg_bytes.copy()
+            test_msg[byte_idx] ^= (1 << (7 - bit_idx))
+            
+            # Check if this fixes CRC
+            if check_crc(test_msg):
+                return test_msg
+    
+    return None  # No single-bit error found</code></pre>
+                
+                <p><strong>Fast C Implementation with Lookup Table:</strong></p>
+                
+                <pre><code>// Pre-computed CRC table for fast calculation
+uint32_t crc_table[256];
+
+void init_crc_table() {
+    for (int i = 0; i < 256; i++) {
+        uint32_t crc = i << 16;
+        for (int j = 0; j < 8; j++) {
+            if (crc & 0x800000)
+                crc = (crc << 1) ^ 0xFFFA0480;
+            else
+                crc = crc << 1;
+        }
+        crc_table[i] = crc & 0xFFFFFF;
+    }
+}
+
+uint32_t modes_checksum(uint8_t *msg, int bits) {
+    uint32_t crc = 0;
+    int bytes = bits / 8;
+    
+    for (int i = 0; i < bytes; i++) {
+        crc = ((crc << 8) & 0xFFFFFF) ^ crc_table[msg[i] ^ ((crc >> 16) & 0xFF)];
+    }
+    
+    return crc;
+}
+
+int check_message(uint8_t *msg, int bits) {
+    return modes_checksum(msg, bits) == 0;
+}</code></pre>
+            </div>
+            
+            <div class="card">
+                <h4><span class="step-number">6</span>Message Decoding</h4>
+                
+                <p><strong>Goal:</strong> Extract information from validated messages</p>
+                
+                <p><strong>Python Message Parser:</strong></p>
+                
+                <pre><code>def decode_modes_message(msg_bytes):
+    """
+    Decode Mode S message
+    
+    Returns:
+        dict with decoded fields
+    """
+    # Extract Downlink Format (first 5 bits)
+    df = msg_bytes[0] >> 3
+    
+    # Extract ICAO address (bits 9-32)
+    icao = (msg_bytes[1] << 16) | (msg_bytes[2] << 8) | msg_bytes[3]
+    icao_hex = f"{icao:06X}"
+    
+    result = {
+        'df': df,
+        'icao': icao_hex,
+        'type': None,
+        'data': {}
+    }
+    
+    # DF 17 = ADS-B messages
+    if df == 17:
+        # Extract Type Code (bits 33-37)
+        me = msg_bytes[4:11]  # Message, Extended (56 bits)
+        tc = me[0] >> 3  # Type code (first 5 bits of ME)
+        
+        result['type'] = tc
+        
+        # Aircraft identification (TC 1-4)
+        if 1 <= tc <= 4:
+            result['data'] = decode_identification(me)
+        
+        # Airborne position (TC 9-18)
+        elif 9 <= tc <= 18:
+            result['data'] = decode_airborne_position(me, tc)
+        
+        # Airborne velocity (TC 19)
+        elif tc == 19:
+            result['data'] = decode_velocity(me)
+    
+    return result
+
+def decode_identification(me):
+    """Decode aircraft callsign"""
+    # Character set for ADS-B
+    charset = "?ABCDEFGHIJKLMNOPQRSTUVWXYZ????? ???????????????0123456789??????"
+    
+    # Extract 6-bit characters
+    chars = []
+    chars.append((me[1] & 0x3F))                  # Char 1
+    chars.append(((me[2] & 0xFC) >> 2))           # Char 2
+    chars.append(((me[2] & 0x03) << 4) | ((me[3] & 0xF0) >> 4))  # Char 3
+    chars.append(((me[3] & 0x0F) << 2) | ((me[4] & 0xC0) >> 6))  # Char 4
+    chars.append((me[4] & 0x3F))                  # Char 5
+    chars.append(((me[5] & 0xFC) >> 2))           # Char 6
+    chars.append(((me[5] & 0x03) << 4) | ((me[6] & 0xF0) >> 4))  # Char 7
+    chars.append(((me[6] & 0x0F) << 2) | ((me[7] & 0xC0) >> 6))  # Char 8
+    
+    callsign = ''.join([charset[c] for c in chars])
+    
+    return {'callsign': callsign.strip()}
+
+def decode_airborne_position(me, tc):
+    """Decode position (CPR encoded)"""
+    # Altitude encoding
+    alt_code = ((me[2] & 0x0F) << 8) | me[3]
+    
+    # Decode altitude (simplified - real version handles Q-bit)
+    if alt_code & 0x10:  # Q-bit set
+        altitude = ((alt_code & 0x0FFF) * 25) - 1000
+    else:
+        altitude = None  # Gillham code - more complex
+    
+    # CPR encoded position (17 bits lat, 17 bits lon)
+    cpr_lat = ((me[4] & 0x03) << 15) | (me[5] << 7) | (me[6] >> 1)
+    cpr_lon = ((me[6] & 0x01) << 16) | (me[7] << 8) | me[8]
+    
+    # CPR format (even/odd frame)
+    cpr_format = (me[4] >> 2) & 0x01
+    
+    return {
+        'altitude': altitude,
+        'cpr_lat': cpr_lat,
+        'cpr_lon': cpr_lon,
+        'cpr_format': cpr_format
+    }</code></pre>
+                
+                <div class="warning-box">
+                    <strong>Note:</strong> CPR position decoding requires pairing even/odd frames. See pyModeS library for complete CPR implementation - it's complex!
+                </div>
+            </div>
+            
+            <div class="card">
+                <h4><span class="step-number">7</span>Aircraft State Tracking</h4>
+                
+                <p><strong>Python Aircraft Tracker:</strong></p>
+                
+                <pre><code>import time
+
+class Aircraft:
+    def __init__(self, icao):
+        self.icao = icao
+        self.callsign = None
+        self.altitude = None
+        self.latitude = None
+        self.longitude = None
+        self.speed = None
+        self.heading = None
+        self.vertical_rate = None
+        
+        # CPR decoding state
+        self.cpr_even = None
+        self.cpr_odd = None
+        self.cpr_even_time = 0
+        self.cpr_odd_time = 0
+        
+        self.last_seen = time.time()
+        self.message_count = 0
+    
+    def update(self, decoded_msg):
+        """Update aircraft state from message"""
+        self.last_seen = time.time()
+        self.message_count += 1
+        
+        data = decoded_msg['data']
+        
+        if 'callsign' in data:
+            self.callsign = data['callsign']
+        
+        if 'altitude' in data:
+            self.altitude = data['altitude']
+        
+        # Store CPR frames for position calculation
+        if 'cpr_lat' in data:
+            if data['cpr_format'] == 0:  # Even frame
+                self.cpr_even = (data['cpr_lat'], data['cpr_lon'])
+                self.cpr_even_time = time.time()
+            else:  # Odd frame
+                self.cpr_odd = (data['cpr_lat'], data['cpr_lon'])
+                self.cpr_odd_time = time.time()
+            
+            # Try to decode position if we have both frames
+            if self.cpr_even and self.cpr_odd:
+                if abs(self.cpr_even_time - self.cpr_odd_time) < 10:
+                    self.decode_cpr_position()
+    
+    def decode_cpr_position(self):
+        """Decode CPR to lat/lon (simplified)"""
+        # This is complex - use pyModeS library for production
+        # See: https://mode-s.org/decode/content/ads-b/3-airborne-position.html
+        pass
+    
+    def to_dict(self):
+        """Export as dictionary for JSON"""
+        return {
+            'hex': self.icao,
+            'flight': self.callsign,
+            'alt_baro': self.altitude,
+            'lat': self.latitude,
+            'lon': self.longitude,
+            'gs': self.speed,
+            'track': self.heading,
+            'messages': self.message_count,
+            'seen': time.time() - self.last_seen
+        }
+
+class AircraftTracker:
+    def __init__(self):
+        self.aircraft = {}  # ICAO -> Aircraft object
+    
+    def update_aircraft(self, decoded_msg):
+        """Update or create aircraft from message"""
+        icao = decoded_msg['icao']
+        
+        if icao not in self.aircraft:
+            self.aircraft[icao] = Aircraft(icao)
+        
+        self.aircraft[icao].update(decoded_msg)
+    
+    def cleanup_old(self, max_age=300):
+        """Remove aircraft not seen for max_age seconds"""
+        now = time.time()
+        to_remove = []
+        
+        for icao, ac in self.aircraft.items():
+            if now - ac.last_seen > max_age:
+                to_remove.append(icao)
+        
+        for icao in to_remove:
+            del self.aircraft[icao]
+    
+    def to_json(self):
+        """Export all aircraft as JSON"""
+        return {
+            'now': time.time(),
+            'aircraft': [ac.to_dict() for ac in self.aircraft.values()]
+        }</code></pre>
+            </div>
+            
+            <div class="card">
+                <h4><span class="step-number">8</span>Web Interface & Output</h4>
+                
+                <p><strong>Flask Web Server Example:</strong></p>
+                
+                <pre><code>from flask import Flask, jsonify, send_from_directory
+import json
+
+app = Flask(__name__)
+tracker = AircraftTracker()  # Global tracker instance
+
+@app.route('/data/aircraft.json')
+def get_aircraft():
+    """Serve aircraft JSON"""
+    tracker.cleanup_old()
+    return jsonify(tracker.to_json())
+
+@app.route('/')
+def index():
+    """Serve main page"""
+    return send_from_directory('static', 'index.html')
+
+# Run server
+if __name__ == '__main__':
+    app.run(host='0.0.0.0', port=8080)</code></pre>
+                
+                <p><strong>Simple HTML Map (static/index.html):</strong></p>
+                
+                <pre><code>&lt;!DOCTYPE html&gt;
+&lt;html&gt;
+&lt;head&gt;
+    &lt;title&gt;ADS-B Map&lt;/title&gt;
+    &lt;link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/&gt;
+    &lt;script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"&gt;&lt;/script&gt;
+    &lt;style&gt;
+        #map { height: 100vh; width: 100vw; }
+    &lt;/style&gt;
+&lt;/head&gt;
+&lt;body&gt;
+    &lt;div id="map"&gt;&lt;/div&gt;
+    &lt;script&gt;
+        var map = L.map('map').setView([37.7749, -122.4194], 8);
+        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(map);
+        
+        var aircraftMarkers = {};
+        
+        function updateAircraft() {
+            fetch('/data/aircraft.json')
+                .then(r => r.json())
+                .then(data => {
+                    data.aircraft.forEach(ac => {
+                        if (ac.lat && ac.lon) {
+                            var key = ac.hex;
+                            
+                            if (!aircraftMarkers[key]) {
+                                aircraftMarkers[key] = L.marker([ac.lat, ac.lon]).addTo(map);
+                            } else {
+                                aircraftMarkers[key].setLatLng([ac.lat, ac.lon]);
+                            }
+                            
+                            var popup = `&lt;b&gt;${ac.flight || ac.hex}&lt;/b&gt;&lt;br&gt;` +
+                                       `Alt: ${ac.alt_baro} ft&lt;br&gt;` +
+                                       `Speed: ${ac.gs} kt`;
+                            aircraftMarkers[key].bindPopup(popup);
+                        }
+                    });
+                });
+        }
+        
+        updateAircraft();
+        setInterval(updateAircraft, 1000);
+    &lt;/script&gt;
+&lt;/body&gt;
+&lt;/html&gt;</code></pre>
+            </div>
+            
+            <h3>Complete Python Project Structure</h3>
+            
+            <div class="card">
+                <pre><code>adsb-decoder/
+├── main.py              # Entry point
+├── sdr_interface.py     # RTL-SDR communication
+├── demodulator.py       # Signal processing & demodulation
+├── decoder.py           # Message decoding
+├── tracker.py           # Aircraft state management
+├── web_server.py        # Flask web interface
+├── static/
+│   ├── index.html       # Map interface
+│   └── style.css
+├── requirements.txt     # Python dependencies
+└── README.md
+
+requirements.txt:
+pyrtlsdr
+numpy
+flask
+pyModeS  # For reference/CPR decoding</code></pre>
+            </div>
+            
+            <h3>Learning Resources & References</h3>
+            
+            <div class="card">
+                <h4>Essential Reading</h4>
+                
+                <ul>
+                    <li><strong>Mode S Basics:</strong> <code>https://mode-s.org/</code> - Comprehensive guide to Mode S and ADS-B</li>
+                    <li><strong>dump1090 Source:</strong> <code>https://github.com/flightaware/dump1090</code> - Study the reference implementation</li>
+                    <li><strong>pyModeS:</strong> <code>https://github.com/junzis/pyModeS</code> - Python library with well-documented algorithms</li>
+                    <li><strong>ICAO Doc 9871:</strong> Official ADS-B specification (complex but authoritative)</li>
+                    <li><strong>RTL-SDR Tutorial:</strong> <code>https://www.rtl-sdr.com/adsb-aircraft-radar-with-rtl-sdr/</code></li>
+                </ul>
+                
+                <h4>Study These dump1090 Files</h4>
+                
+                <table>
+                    <thead>
+                        <tr>
+                            <th>File</th>
+                            <th>What to Learn</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr>
+                            <td><code>demod_2400.c</code></td>
+                            <td>Preamble detection, PPM demodulation</td>
+                        </tr>
+                        <tr>
+                            <td><code>mode_s.c</code></td>
+                            <td>CRC calculation, message parsing</td>
+                        </tr>
+                        <tr>
+                            <td><code>cpr.c</code></td>
+                            <td>CPR position decoding (complex!)</td>
+                        </tr>
+                        <tr>
+                            <td><code>track.c</code></td>
+                            <td>Aircraft state tracking</td>
+                        </tr>
+                        <tr>
+                            <td><code>net_io.c</code></td>
+                            <td>Network protocols (Beast, SBS-1)</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+            
+            <div class="card">
+                <h4>Development Roadmap</h4>
+                
+                <p><strong>Phase 1: Basic Decoder (1-2 weeks)</strong></p>
+                <ol>
+                    <li>Get IQ samples from RTL-SDR</li>
+                    <li>Convert to magnitude</li>
+                    <li>Detect preambles</li>
+                    <li>Demodulate bits</li>
+                    <li>Validate CRC</li>
+                    <li>Print raw hex messages</li>
+                </ol>
+                
+                <p><strong>Phase 2: Message Decoding (1 week)</strong></p>
+                <ol>
+                    <li>Parse DF and ICAO</li>
+                    <li>Decode callsign (TC 1-4)</li>
+                    <li>Decode altitude</li>
+                    <li>Extract velocity data</li>
+                </ol>
+                
+                <p><strong>Phase 3: Position Calculation (1-2 weeks)</strong></p>
+                <ol>
+                    <li>Implement CPR decoding (hardest part!)</li>
+                    <li>Handle even/odd frame pairing</li>
+                    <li>Calculate lat/lon</li>
+                    <li>Handle edge cases (dateline, poles)</li>
+                </ol>
+                
+                <p><strong>Phase 4: Tracking & Output (1 week)</strong></p>
+                <ol>
+                    <li>Build aircraft state tracker</li>
+                    <li>Implement timeout/cleanup</li>
+                    <li>Generate JSON output</li>
+                    <li>Create basic web interface</li>
+                </ol>
+                
+                <p><strong>Phase 5: Optimization (ongoing)</strong></p>
+                <ol>
+                    <li>Performance tuning</li>
+                    <li>Multi-threading</li>
+                    <li>Advanced error correction</li>
+                    <li>Additional protocols (MLAT, etc.)</li>
+                </ol>
+            </div>
+            
+            <div class="success-box">
+                <h4>🎯 Recommended Starting Point</h4>
+                <p><strong>Build a minimal Python decoder in this order:</strong></p>
+                <ol>
+                    <li>Start with <code>pyrtlsdr</code> to get samples</li>
+                    <li>Use <code>numpy</code> for magnitude calculation</li>
+                    <li>Implement simple preamble detector</li>
+                    <li>Demodulate bits and validate CRC</li>
+                    <li>Use <code>pyModeS</code> library for decoding (don't reinvent CPR!)</li>
+                    <li>Build simple tracker and Flask web interface</li>
+                    <li>Then gradually replace pyModeS components with your own</li>
+                </ol>
+                <p><strong>Goal:</strong> Working decoder in a weekend, then improve incrementally!</p>
+            </div>
+            
+            <h2>🚀 Next Steps & Resources</h2>
+            
+            <div class="card">
+                <h4>Quick Start Checklist</h4>
+                
+                <div class="success-box">
+                    <p><strong>Week 1: Hardware & Basic Setup</strong></p>
+                    <ol>
+                        <li>☐ Order RTL-SDR dongle and antenna (or build DIY antenna)</li>
+                        <li>☐ Install drivers (Zadig on Windows, blacklist on Linux)</li>
+                        <li>☐ Test RTL-SDR with <code>rtl_test</code></li>
+                        <li>☐ Install dump1090 or readsb</li>
+                        <li>☐ Verify web interface shows aircraft</li>
+                    </ol>
+                </div>
+                
+                <div class="success-box">
+                    <p><strong>Week 2: Optimization</strong></p>
+                    <ol>
+                        <li>☐ Mount antenna in optimal location</li>
+                        <li>☐ Calibrate PPM correction</li>
+                        <li>☐ Tune gain settings for maximum aircraft count</li>
+                        <li>☐ Measure and record range performance</li>
+                        <li>☐ Consider adding LNA/filter if needed</li>
+                    </ol>
+                </div>
+                
+                <div class="success-box">
+                    <p><strong>Week 3: Enhancement</strong></p>
+                    <ol>
+                        <li>☐ Install tar1090 or Virtual Radar Server</li>
+                        <li>☐ Sign up for FlightAware and/or FlightRadar24</li>
+                        <li>☐ Configure and start feeding data</li>
+                        <li>☐ Set up automatic startup on boot</li>
+                        <li>☐ Explore custom applications with JSON data</li>
+                    </ol>
+                </div>
+            </div>
+            
+            <div class="card">
+                <h4>Learning Resources</h4>
+                
+                <p><strong>Documentation:</strong></p>
+                <ul>
+                    <li><strong>dump1090-fa:</strong> <code>https://github.com/flightaware/dump1090</code></li>
+                    <li><strong>readsb:</strong> <code>https://github.com/wiedehopf/readsb</code></li>
+                    <li><strong>tar1090:</strong> <code>https://github.com/wiedehopf/tar1090</code></li>
+                    <li><strong>RTL-SDR:</strong> <code>https://www.rtl-sdr.com/</code></li>
+                </ul>
+                
+                <p><strong>Communities:</strong></p>
+                <ul>
+                    <li><strong>r/RTLSDR:</strong> Reddit community for RTL-SDR projects</li>
+                    <li><strong>r/ADSB:</strong> Dedicated ADS-B subreddit</li>
+                    <li><strong>FlightAware Forums:</strong> Active community support</li>
+                    <li><strong>ADSBexchange Discord:</strong> Real-time help</li>
+                </ul>
+                
+                <p><strong>Technical References:</strong></p>
+                <ul>
+                    <li><strong>Mode S Decoding Guide:</strong> <code>https://mode-s.org/</code></li>
+                    <li><strong>pyModeS Documentation:</strong> Python library for ADS-B decoding</li>
+                    <li><strong>ICAO Annex 10:</strong> Official ADS-B specification (technical)</li>
+                </ul>
+            </div>
+            
+            <div class="card">
+                <h4>Project Ideas</h4>
+                
+                <ul>
+                    <li>📊 <strong>Statistics Dashboard:</strong> Track daily/monthly aircraft counts, range records</li>
+                    <li>🔔 <strong>Alert System:</strong> Notifications for specific callsigns, types, or low-altitude aircraft</li>
+                    <li>📸 <strong>Aircraft Photography:</strong> Auto-capture photos when interesting aircraft overhead</li>
+                    <li>🗺️ <strong>Coverage Mapping:</strong> Generate heatmaps of your reception coverage</li>
+                    <li>📈 <strong>Traffic Analysis:</strong> Analyze flight patterns, busiest times, common routes</li>
+                    <li>🎮 <strong>Flight Simulator Integration:</strong> Inject real traffic into MSFS/X-Plane</li>
+                    <li>🌐 <strong>Multi-Site Setup:</strong> Combine multiple receivers for extended coverage</li>
+                    <li>🤖 <strong>Machine Learning:</strong> Predict aircraft types based on flight patterns</li>
+                </ul>
+            </div>
+            
+            <div class="card">
+                <h4>Hardware Upgrade Path</h4>
+                
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Stage</th>
+                            <th>Cost</th>
+                            <th>Upgrades</th>
+                            <th>Expected Improvement</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr>
+                            <td><strong>Beginner</strong></td>
+                            <td>$30-50</td>
+                            <td>RTL-SDR Blog V3 + DIY antenna</td>
+                            <td>150-200 km range, 50-150 aircraft</td>
+                        </tr>
+                        <tr>
+                            <td><strong>Intermediate</strong></td>
+                            <td>$80-150</td>
+                            <td>+ Commercial antenna + LMR-200 cable</td>
+                            <td>250-300 km range, 150-300 aircraft</td>
+                        </tr>
+                        <tr>
+                            <td><strong>Advanced</strong></td>
+                            <td>$150-300</td>
+                            <td>+ FlightAware ProStick Plus + mast mounting</td>
+                            <td>300-400 km range, 300-600 aircraft</td>
+                        </tr>
+                        <tr>
+                            <td><strong>Professional</strong></td>
+                            <td>$500+</td>
+                            <td>+ High-gain collinear + tower mount + LMR-400</td>
+                            <td>400+ km range, 600-1000+ aircraft</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+            
+            <div class="warning-box">
+                <h4>⚖️ Legal Considerations</h4>
+                <ul>
+                    <li><strong>Listening is legal:</strong> Receiving ADS-B signals is legal worldwide (passive reception)</li>
+                    <li><strong>No transmission:</strong> RTL-SDR is receive-only, no licensing required</li>
+                    <li><strong>Antenna mounting:</strong> Check local building codes, HOA rules, landlord permissions</li>
+                    <li><strong>Data usage:</strong> Public ADS-B data, but respect privacy in how you use it</li>
+                    <li><strong>Aviation safety:</strong> Never interfere with aviation frequencies (RTL-SDR can't transmit)</li>
+                </ul>
+            </div>
+            
+            <div class="info-box">
+                <h4>🎯 Final Tips for Success</h4>
+                <ul>
+                    <li><strong>Start simple:</strong> Get basic reception working before optimizing</li>
+                    <li><strong>Antenna first:</strong> Invest in antenna height before expensive hardware</li>
+                    <li><strong>Document baseline:</strong> Record initial performance to measure improvements</li>
+                    <li><strong>Join community:</strong> Share experiences, learn from others</li>
+                    <li><strong>Be patient:</strong> Optimization takes time, experiment with different settings</li>
+                    <li><strong>Have fun:</strong> ADS-B tracking is an educational and rewarding hobby!</li>
+                </ul>
+            </div>
+
+        </div>
+        
+        <footer>
+            <p><strong>ADS-B Receiver Implementation Guide</strong></p>
+            <p>Last updated: November 22, 2025</p>
+            <p>For questions and updates, visit the communities listed in the resources section above.</p>
+            <p style="margin-top: 10px; font-size: 0.9em;">Happy tracking! ✈️📡</p>
+        </footer>
+    </div>
+</body>
+</html>
